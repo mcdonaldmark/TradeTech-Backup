@@ -5,6 +5,12 @@ const { login, registerUser } = require("../controllers/authController");
 const authMiddleware = require("../middleware/authMiddleware");
 const { authorizeCreateRole } = require("../middleware/authorizeRoles");
 
+/*
+ * =========================
+ * AUTH ROUTES
+ * =========================
+ */
+
 // LOGIN
 router.post("/login", login);
 
@@ -15,14 +21,11 @@ router.post(
   authorizeCreateRole(),
   registerUser
 );
-const express = require('express');
 
-const router = express.Router();
-
-// Test Route
-router.get('/test', (req, res) => {
+// TEST ROUTE
+router.get("/test", (req, res) => {
   res.json({
-    message: 'Auth route working',
+    message: "Auth route working",
   });
 });
 

@@ -1,21 +1,32 @@
 const express = require("express");
 const cors = require("cors");
+require("dotenv").config();
 
 const userRoutes = require("./routes/userRoutes");
 const authRoutes = require("./routes/authRoutes");
 const inventoryRoutes = require("./routes/inventoryRoutes");
-const salesRoutes = require("./routes/salesRoutes"); // ✅ ADDED
+const salesRoutes = require("./routes/salesRoutes");
 
 const app = express();
 
+/*
+ * =========================
+ * MIDDLEWARE
+ * =========================
+ */
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+/*
+ * =========================
+ * HEALTH CHECK
+ * =========================
+ */
 app.get("/", (req, res) => {
   res.json({
     message: "TradeTech API is running",
-    status: "OK"
+    status: "OK",
   });
 });
 
@@ -24,22 +35,14 @@ app.get("/", (req, res) => {
  * ROUTES
  * =========================
  */
-
-// Auth routes
 app.use("/api/auth", authRoutes);
-
-// User routes
 app.use("/api/users", userRoutes);
-
-// Inventory routes
 app.use("/api/inventory", inventoryRoutes);
-
-// SALES routes
 app.use("/api/sales", salesRoutes);
 
 /*
  * =========================
- * ERROR HANDLING
+ * 404 HANDLER
  * =========================
  */
 app.use((req, res) => {
@@ -51,24 +54,6 @@ app.use((req, res) => {
  * START SERVER
  * =========================
  */
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
-const authRoutes = require('./routes/authRoutes');
-const app = express();
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use('/api/auth', authRoutes);
-// Test Route
-app.get('/', (req, res) => {
-  res.send('TradeTech API Running Successfully');
-});
-
-
-
-// Port
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
