@@ -28,10 +28,10 @@ class _SalesScreenState extends State<SalesScreen> {
 
     try {
       final res = await ApiService.get("sales");
-      final List data = res as List;
+      final List data = res;
 
       setState(() {
-        sales = data.map((item) => Sale.fromJson(item)).toList();
+        sales = data.map((e) => Sale.fromJson(e)).toList();
         loading = false;
       });
     } catch (e) {
@@ -42,10 +42,89 @@ class _SalesScreenState extends State<SalesScreen> {
     }
   }
 
+  // ---------------- CREATE SALE ----------------
+  Future<void> createSale(Map data) async {
+    try {
+      await ApiService.post("sales", data);
+      fetchSales();
+    } catch (e) {
+      showError(e);
+    }
+  }
+
+  void showError(Object e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(e.toString())),
+    );
+  }
+
+  // ---------------- DIALOG ----------------
+  void showSaleDialog() {
+    final productController = TextEditingController();
+    final qtyController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Create Sale"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: productController,
+              decoration: const InputDecoration(
+                labelText: "Product Name or ID",
+              ),
+            ),
+            TextField(
+              controller: qtyController,
+              decoration: const InputDecoration(
+                labelText: "Quantity",
+              ),
+              keyboardType: TextInputType.number,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final productInput = productController.text.trim();
+              final qty = int.tryParse(qtyController.text) ?? 0;
+
+              Navigator.pop(context);
+
+              createSale({
+                if (int.tryParse(productInput) != null)
+                  "product_id": int.parse(productInput)
+                else
+                  "product_name": productInput,
+                "quantity_sold": qty,
+              });
+            },
+            child: const Text("Sell"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------- UI ----------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Sales")),
+      appBar: AppBar(
+        title: const Text("Sales"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: showSaleDialog,
+          )
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: fetchSales,
         child: loading
@@ -72,7 +151,7 @@ class _SalesScreenState extends State<SalesScreen> {
                       return Card(
                         child: ListTile(
                           title: Text(s.productName),
-                          subtitle: Text("Qty: ${s.quantitySold}"),
+                          subtitle: Text("Qty sold: ${s.quantitySold}"),
                           trailing: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [

@@ -7,7 +7,15 @@ const jwt = require("jsonwebtoken");
  */
 const login = async (req, res) => {
   try {
+    console.log("LOGIN HIT:", req.body);
+
     const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Email and password are required"
+      });
+    }
 
     const result = await pool.query(
       "SELECT * FROM users WHERE email = $1",
@@ -35,9 +43,17 @@ const login = async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    res.json({ token, user: { id: user.id, role: user.role } });
+    return res.json({
+      token,
+      user: {
+        id: user.id,
+        role: user.role
+      }
+    });
+
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("LOGIN ERROR:", err);
+    return res.status(500).json({ error: err.message });
   }
 };
 
@@ -48,6 +64,12 @@ const registerUser = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
 
+    if (!name || !email || !password || !role) {
+      return res.status(400).json({
+        message: "Missing required fields"
+      });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     await pool.query(
@@ -55,12 +77,14 @@ const registerUser = async (req, res) => {
       [name, email, hashedPassword, role]
     );
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "User created successfully",
       user: { name, email, role }
     });
+
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("REGISTER ERROR:", err);
+    return res.status(500).json({ error: err.message });
   }
 };
 

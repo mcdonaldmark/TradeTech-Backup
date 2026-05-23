@@ -28,11 +28,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     try {
       final res = await ApiService.get("inventory");
-
-      final List data = res as List;
+      final List data = res;
 
       setState(() {
-        products = data.map((item) => Product.fromJson(item)).toList();
+        products = data.map((e) => Product.fromJson(e)).toList();
         loading = false;
       });
     } catch (e) {
@@ -43,10 +42,107 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
+  // ---------------- CREATE ----------------
+  Future<void> createProduct(Map data) async {
+    try {
+      await ApiService.post("inventory", data);
+      fetchProducts();
+    } catch (e) {
+      showError(e);
+    }
+  }
+
+  // ---------------- UPDATE ----------------
+  Future<void> updateProduct(int id, Map data) async {
+    try {
+      await ApiService.put("inventory/$id", data);
+      fetchProducts();
+    } catch (e) {
+      showError(e);
+    }
+  }
+
+  // ---------------- DELETE ----------------
+  Future<void> deleteProduct(int id) async {
+    try {
+      await ApiService.delete("inventory/$id");
+      fetchProducts();
+    } catch (e) {
+      showError(e);
+    }
+  }
+
+  void showError(Object e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(e.toString())),
+    );
+  }
+
+  // ---------------- DIALOG: CREATE / EDIT ----------------
+  void showProductDialog({Product? product}) {
+    final nameController = TextEditingController(text: product?.name ?? "");
+    final descController = TextEditingController(text: product?.description ?? "");
+    final qtyController = TextEditingController(text: product?.quantity.toString() ?? "");
+    final priceController = TextEditingController(text: product?.price.toString() ?? "");
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(product == null ? "Add Product" : "Edit Product"),
+        content: SingleChildScrollView(
+          child: Column(
+            children: [
+              TextField(controller: nameController, decoration: const InputDecoration(labelText: "Name")),
+              TextField(controller: descController, decoration: const InputDecoration(labelText: "Description")),
+              TextField(controller: qtyController, decoration: const InputDecoration(labelText: "Quantity")),
+              TextField(controller: priceController, decoration: const InputDecoration(labelText: "Price")),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final data = {
+                "name": nameController.text,
+                "description": descController.text,
+                "quantity": int.tryParse(qtyController.text) ?? 0,
+                "price": double.tryParse(priceController.text) ?? 0,
+                "image_url": "",
+                "cost_price": 0,
+              };
+
+              Navigator.pop(context);
+
+              if (product == null) {
+                createProduct(data);
+              } else {
+                updateProduct(product.id, data);
+              }
+            },
+            child: const Text("Save"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------- UI ----------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Inventory")),
+      appBar: AppBar(
+        title: const Text("Inventory"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () => showProductDialog(),
+          )
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: fetchProducts,
         child: loading
@@ -73,10 +169,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       return Card(
                         child: ListTile(
                           title: Text(p.name),
-                          subtitle: Text(
-                            "Qty: ${p.quantity} | \$${p.price}",
+                          subtitle: Text("Qty: ${p.quantity} | \$${p.price}"),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit),
+                                onPressed: () => showProductDialog(product: p),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete),
+                                onPressed: () => deleteProduct(p.id),
+                              ),
+                            ],
                           ),
-                          trailing: const Icon(Icons.edit),
                         ),
                       );
                     },
