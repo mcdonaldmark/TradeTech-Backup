@@ -3,92 +3,96 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
 /*
+ * ROLE RULES (centralized)
+ */
+const roleHierarchy = {
+  user: 1,
+  cashier: 2,
+  manager: 3,
+  director: 4
+};
+
+const canCreateRole = (creatorRole, targetRole) => {
+  // only director can create manager/director
+  if (targetRole === "director") return creatorRole === "director";
+  if (targetRole === "manager") return ["manager", "director"].includes(creatorRole);
+  if (targetRole === "cashier") return ["manager", "director"].includes(creatorRole);
+  return true; // user
+};
+
+/*
  * LOGIN
  */
 const login = async (req, res) => {
   try {
-    console.log("LOGIN HIT:", req.body);
-
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({
-        message: "Email and password are required"
-      });
+      return res.status(400).json({ message: "Email and password are required" });
     }
 
-    const result = await pool.query(
-      "SELECT * FROM users WHERE email = $1",
-      [email]
-    );
-
+    const result = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
     const user = result.rows[0];
 
-    if (!user) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
+    if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
     const match = await bcrypt.compare(password, user.password);
-
-    if (!match) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
+    if (!match) return res.status(401).json({ message: "Invalid credentials" });
 
     const token = jwt.sign(
-      {
-        id: user.id,
-        role: user.role
-      },
+      { id: user.id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
 
     return res.json({
       token,
-      user: {
-        id: user.id,
-        role: user.role
-      }
+      user: { id: user.id, role: user.role }
     });
 
   } catch (err) {
-    console.error("LOGIN ERROR:", err);
     return res.status(500).json({ error: err.message });
   }
 };
 
 /*
- * REGISTER USER
+ * REGISTER USER (FIXED ROLE SECURITY)
  */
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role = "user" } = req.body;
 
-    if (!name || !email || !password || !role) {
-      return res.status(400).json({
-        message: "Missing required fields"
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    // 🔒 prevent invalid roles
+    const allowedRoles = ["user", "cashier", "manager", "director"];
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({ message: "Invalid role" });
+    }
+
+    // 🔒 if request is authenticated, enforce hierarchy
+    const creatorRole = req.user?.role;
+
+    if (creatorRole && !canCreateRole(creatorRole, role)) {
+      return res.status(403).json({
+        message: `Your role (${creatorRole}) cannot create ${role}`
       });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     await pool.query(
-      "INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4)",
+      "INSERT INTO users (name, email, password, role) VALUES ($1,$2,$3,$4)",
       [name, email, hashedPassword, role]
     );
 
-    return res.status(201).json({
-      message: "User created successfully",
-      user: { name, email, role }
-    });
+    res.status(201).json({ message: "User created successfully" });
 
   } catch (err) {
-    console.error("REGISTER ERROR:", err);
-    return res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 };
 
-module.exports = {
-  login,
-  registerUser
-};
+module.exports = { login, registerUser };

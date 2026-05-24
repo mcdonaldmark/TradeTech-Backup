@@ -42,6 +42,16 @@ dependencies:
   # Local storage for saving tokens, login sessions, etc.
   shared_preferences: ^2.2.3
 
+  # =========================
+  # NEW: RECEIPT / PDF FEATURE
+  # =========================
+
+  # Used to generate PDF receipts (invoices, printable documents)
+  pdf: ^3.10.7
+
+  # Used to print, preview, or export PDF receipts
+  printing: ^5.13.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

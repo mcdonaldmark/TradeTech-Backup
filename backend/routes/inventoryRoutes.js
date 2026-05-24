@@ -16,42 +16,54 @@ const { authorizeRoles } = require("../middleware/authorizeRoles");
 /*
   USERS + CASHIERS SEE PRODUCTS
 */
-router.get("/", authMiddleware,
-  authorizeRoles("user","cashier","manager","director"),
+router.get(
+  "/",
+  authMiddleware,
+  authorizeRoles("user", "cashier", "manager", "director"),
   getProducts
 );
 
 /*
-  ALL ROLES SEE PRODUCT DETAILS
+  STOCK CHECK (FIXED: moved ABOVE /:id)
 */
-router.get("/:id", authMiddleware,
-  authorizeRoles("user","cashier","manager","director"),
-  getProductById
+router.get(
+  "/check",
+  authMiddleware,
+  authorizeRoles("cashier", "manager", "director"),
+  checkStock
 );
 
 /*
-  CASHIER+ SEE STOCK
+  PRODUCT DETAILS
 */
-router.get("/check", authMiddleware,
-  authorizeRoles("cashier","manager","director"),
-  checkStock
+router.get(
+  "/:id",
+  authMiddleware,
+  authorizeRoles("user", "cashier", "manager", "director"),
+  getProductById
 );
 
 /*
   ONLY MANAGER + DIRECTOR CAN MODIFY
 */
-router.post("/", authMiddleware,
-  authorizeRoles("manager","director"),
+router.post(
+  "/",
+  authMiddleware,
+  authorizeRoles("manager", "director"),
   createProduct
 );
 
-router.put("/:id", authMiddleware,
-  authorizeRoles("manager","director"),
+router.put(
+  "/:id",
+  authMiddleware,
+  authorizeRoles("manager", "director"),
   updateProduct
 );
 
-router.delete("/:id", authMiddleware,
-  authorizeRoles("manager","director"),
+router.delete(
+  "/:id",
+  authMiddleware,
+  authorizeRoles("manager", "director"),
   deleteProduct
 );
 

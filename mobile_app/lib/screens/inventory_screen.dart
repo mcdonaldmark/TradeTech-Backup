@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/api/api_service.dart';
+import '../core/auth/auth_service.dart';
 import '../models/product.dart';
 
 class InventoryScreen extends StatefulWidget {
@@ -19,6 +20,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
     super.initState();
     fetchProducts();
   }
+
+  bool get isCashier => AuthService.currentRole == "cashier";
 
   Future<void> fetchProducts() async {
     setState(() {
@@ -43,43 +46,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Future<void> createProduct(Map data) async {
-    try {
-      await ApiService.post("inventory", data);
-      fetchProducts();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    }
+    await ApiService.post("inventory", data);
+    fetchProducts();
   }
 
   Future<void> updateProduct(int id, Map data) async {
-    try {
-      await ApiService.put("inventory/$id", data);
-      fetchProducts();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    }
+    await ApiService.put("inventory/$id", data);
+    fetchProducts();
   }
 
   Future<void> deleteProduct(int id) async {
-    try {
-      await ApiService.delete("inventory/$id");
-
-      setState(() {
-        products.removeWhere((p) => p.id == id);
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Product deleted")),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    }
+    await ApiService.delete("inventory/$id");
+    fetchProducts();
   }
 
   void showProductDialog({Product? product}) {
@@ -91,7 +69,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
         TextEditingController(text: product?.quantity.toString() ?? "");
     final priceController =
         TextEditingController(text: product?.price.toString() ?? "");
-
     final imageController =
         TextEditingController(text: product?.imageUrl ?? "");
     final costController = TextEditingController();
@@ -102,33 +79,46 @@ class _InventoryScreenState extends State<InventoryScreen> {
         title: Text(product == null ? "Add Product" : "Edit Product"),
         content: SingleChildScrollView(
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(labelText: "Name"),
+                decoration: const InputDecoration(
+                  labelText: "Product Name",
+                ),
               ),
               TextField(
                 controller: descController,
-                decoration: const InputDecoration(labelText: "Description"),
+                decoration: const InputDecoration(
+                  labelText: "Description",
+                ),
               ),
               TextField(
                 controller: qtyController,
-                decoration: const InputDecoration(labelText: "Quantity"),
                 keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: "Quantity",
+                ),
               ),
               TextField(
                 controller: priceController,
-                decoration: const InputDecoration(labelText: "Price"),
                 keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: "Price",
+                ),
               ),
               TextField(
                 controller: imageController,
-                decoration: const InputDecoration(labelText: "Image URL"),
+                decoration: const InputDecoration(
+                  labelText: "Image URL",
+                ),
               ),
               TextField(
                 controller: costController,
-                decoration: const InputDecoration(labelText: "Cost Price"),
                 keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: "Cost Price",
+                ),
               ),
             ],
           ),
@@ -167,75 +157,63 @@ class _InventoryScreenState extends State<InventoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Inventory")),
-
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => showProductDialog(),
-        child: const Icon(Icons.add),
+      appBar: AppBar(
+        title: const Text("Inventory"),
       ),
 
-      body: RefreshIndicator(
-        onRefresh: fetchProducts,
-        child: loading
-            ? const Center(child: CircularProgressIndicator())
-            : error != null
-                ? ListView(
-                    children: [
-                      const SizedBox(height: 100),
-                      Center(child: Text("Error: $error")),
-                      const SizedBox(height: 20),
-                      Center(
-                        child: ElevatedButton(
-                          onPressed: fetchProducts,
-                          child: const Text("Retry"),
+      floatingActionButton: isCashier
+          ? null
+          : FloatingActionButton(
+              onPressed: () => showProductDialog(),
+              child: const Icon(Icons.add),
+            ),
+
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : error != null
+              ? Center(child: Text("Error: $error"))
+              : ListView.builder(
+                  itemCount: products.length,
+                  itemBuilder: (context, index) {
+                    final p = products[index];
+
+                    return Card(
+                      child: ListTile(
+                        leading: (p.imageUrl != null &&
+                                p.imageUrl!.isNotEmpty)
+                            ? Image.network(
+                                p.imageUrl!,
+                                width: 50,
+                                height: 50,
+                                fit: BoxFit.cover,
+                              )
+                            : const Icon(Icons.image),
+
+                        title: Text(p.name),
+                        subtitle: Text(
+                          "Qty: ${p.quantity} | \$${p.price}",
                         ),
-                      )
-                    ],
-                  )
-                : ListView.builder(
-                    itemCount: products.length,
-                    itemBuilder: (context, index) {
-                      final p = products[index];
 
-                      return Card(
-                        child: ListTile(
-                          leading: (p.imageUrl != null &&
-                                  p.imageUrl!.isNotEmpty)
-                              ? Image.network(
-                                  p.imageUrl!,
-                                  width: 50,
-                                  height: 50,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return const Icon(Icons.broken_image);
-                                  },
-                                )
-                              : const Icon(Icons.image),
-
-                          title: Text(p.name),
-                          subtitle: Text(
-                            "Qty: ${p.quantity} | \$${p.price}",
-                          ),
-
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.edit),
-                                onPressed: () =>
-                                    showProductDialog(product: p),
+                        trailing: isCashier
+                            ? null
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit),
+                                    onPressed: () =>
+                                        showProductDialog(product: p),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete),
+                                    onPressed: () => deleteProduct(p.id),
+                                  ),
+                                ],
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.delete),
-                                onPressed: () => deleteProduct(p.id),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-      ),
+                      ),
+                    );
+                  },
+                ),
     );
   }
 }

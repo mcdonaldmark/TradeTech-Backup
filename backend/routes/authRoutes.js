@@ -1,153 +1,119 @@
 const express = require("express");
 const router = express.Router();
+
 const pool = require("../config/db");
 const bcrypt = require("bcrypt");
 const authMiddleware = require("../middleware/authMiddleware");
 
-// ADD THIS 👇
+// controllers
 const { login, registerUser } = require("../controllers/authController");
 
 /*
  * =========================
- * AUTH (LOGIN + REGISTER)
+ * AUTH ROUTES
  * =========================
  */
 
-// LOGIN  ✅ FIX
+// LOGIN
 router.post("/login", login);
 
-// REGISTER (public or protected depending on your design)
+// REGISTER (public or controlled inside controller)
 router.post("/register", registerUser);
 
+/*
+ * =========================
+ * USER MANAGEMENT ROUTES
+ * =========================
+ */
 
-
-// =========================
-// YOUR EXISTING USER ROUTES
-// =========================
-
-// ROLE PERMISSIONS
 const rolePermissions = {
-    user: ["user"],
-    cashier: ["user"],
-    manager: ["user", "cashier"],
-    director: ["user", "cashier", "manager", "director"]
+  user: ["user"],
+  cashier: ["user"],
+  manager: ["user", "cashier"],
+  director: ["user", "cashier", "manager", "director"],
 };
 
 const canCreateRole = (creatorRole, targetRole) => {
-    return rolePermissions[creatorRole]?.includes(targetRole);
+  return rolePermissions[creatorRole]?.includes(targetRole);
 };
 
 /*
- * CREATE USER
+ * CREATE USER (ADMIN STYLE)
  */
 router.post("/", authMiddleware, async (req, res) => {
-    try {
-        const { name, email, password, role } = req.body;
+  try {
+    const { name, email, password, role } = req.body;
 
-        const creatorRole = req.user.role;
+    const creatorRole = req.user.role;
 
-        const allowedRoles = ["user", "cashier", "manager", "director"];
+    const allowedRoles = ["user", "cashier", "manager", "director"];
 
-        if (!allowedRoles.includes(role)) {
-            return res.status(400).json({ error: "Invalid role" });
-        }
-
-        if (!canCreateRole(creatorRole, role)) {
-            return res.status(403).json({
-                error: `Your role (${creatorRole}) cannot create a ${role} account`
-            });
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        const result = await pool.query(
-            "INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role",
-            [name, email, hashedPassword, role]
-        );
-
-        res.json(result.rows[0]);
-
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({ error: "Invalid role" });
     }
+
+    if (!canCreateRole(creatorRole, role)) {
+      return res.status(403).json({
+        error: `Your role (${creatorRole}) cannot create a ${role} account`,
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const result = await pool.query(
+      "INSERT INTO users (name, email, password, role) VALUES ($1,$2,$3,$4) RETURNING id, name, email, role",
+      [name, email, hashedPassword, role]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /*
  * GET ALL USERS
  */
 router.get("/", authMiddleware, async (req, res) => {
-    try {
-        const result = await pool.query(
-            "SELECT id, name, email, role, created_at FROM users ORDER BY id ASC"
-        );
+  try {
+    const result = await pool.query(
+      "SELECT id, name, email, role, created_at FROM users ORDER BY id ASC"
+    );
 
-        res.json(result.rows);
-
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-/*
- * GET USER BY ID
- */
-router.get("/:id", authMiddleware, async (req, res) => {
-    try {
-        const result = await pool.query(
-            "SELECT id, name, email, role, created_at FROM users WHERE id = $1",
-            [req.params.id]
-        );
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: "User not found" });
-        }
-
-        res.json(result.rows[0]);
-
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /*
  * UPDATE USER
  */
 router.put("/:id", authMiddleware, async (req, res) => {
-    try {
-        const { name, email, role } = req.body;
+  try {
+    const { name, email, role } = req.body;
 
-        const updaterRole = req.user.role;
+    const result = await pool.query(
+      "UPDATE users SET name=$1, email=$2, role=$3 WHERE id=$4 RETURNING id, name, email, role",
+      [name, email, role, req.params.id]
+    );
 
-        if (!rolePermissions[updaterRole]?.includes(role)) {
-            return res.status(403).json({
-                error: `Your role (${updaterRole}) cannot assign role ${role}`
-            });
-        }
-
-        const result = await pool.query(
-            "UPDATE users SET name=$1, email=$2, role=$3 WHERE id=$4 RETURNING id, name, email, role",
-            [name, email, role, req.params.id]
-        );
-
-        res.json(result.rows[0]);
-
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /*
  * DELETE USER
  */
 router.delete("/:id", authMiddleware, async (req, res) => {
-    try {
-        await pool.query("DELETE FROM users WHERE id = $1", [req.params.id]);
-
-        res.json({ message: "User deleted successfully" });
-
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+  try {
+    await pool.query("DELETE FROM users WHERE id=$1", [req.params.id]);
+    res.json({ message: "User deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

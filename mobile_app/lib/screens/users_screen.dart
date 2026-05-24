@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/api/api_service.dart';
+import '../core/auth/auth_service.dart';
 import '../models/user.dart';
 
 class UsersScreen extends StatefulWidget {
@@ -14,11 +15,53 @@ class _UsersScreenState extends State<UsersScreen> {
   bool loading = true;
   String? error;
 
+  String get currentRole => AuthService.currentRole ?? "unknown";
+
   @override
   void initState() {
     super.initState();
     fetchUsers();
   }
+
+  // ===================== ROLE PERMISSIONS =====================
+
+  bool canViewRole(String role) {
+    if (currentRole == "manager") {
+      return role == "user" || role == "cashier";
+    }
+
+    if (currentRole == "cashier") {
+      return role == "user";
+    }
+
+    return true; // director/admin sees all
+  }
+
+  bool canEditRole(String role) {
+    if (currentRole == "manager") {
+      return role == "user" || role == "cashier";
+    }
+
+    if (currentRole == "cashier") {
+      return role == "user";
+    }
+
+    return true;
+  }
+
+  bool canCreateRole(String role) {
+    if (currentRole == "manager") {
+      return role == "user" || role == "cashier";
+    }
+
+    if (currentRole == "cashier") {
+      return role == "user";
+    }
+
+    return true;
+  }
+
+  // ===================== DATA =====================
 
   Future<void> fetchUsers() async {
     setState(() {
@@ -28,11 +71,10 @@ class _UsersScreenState extends State<UsersScreen> {
 
     try {
       final res = await ApiService.get("users");
-
       final List data = res as List;
 
       setState(() {
-        users = data.map((item) => User.fromJson(item)).toList();
+        users = data.map((e) => User.fromJson(e)).toList();
         loading = false;
       });
     } catch (e) {
@@ -43,31 +85,13 @@ class _UsersScreenState extends State<UsersScreen> {
     }
   }
 
-  Future<void> createUser({
-    required String name,
-    required String email,
-    required String password,
-    required String role,
-  }) async {
-    try {
-      await ApiService.post("users", {
-        "name": name,
-        "email": email,
-        "password": password,
-        "role": role,
-      });
+  // ===================== ACTIONS =====================
 
-      fetchUsers();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Create failed: $e")),
-      );
-    }
-  }
+  Future<void> deleteUser(User user) async {
+    if (!canEditRole(user.role)) return;
 
-  Future<void> deleteUser(int id) async {
     try {
-      await ApiService.delete("users/$id");
+      await ApiService.delete("users/${user.id}");
       fetchUsers();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -76,14 +100,16 @@ class _UsersScreenState extends State<UsersScreen> {
     }
   }
 
-  Future<void> updateUser({
-    required int id,
-    required String name,
-    required String email,
-    required String role,
-  }) async {
+  Future<void> updateUser(
+    User user,
+    String name,
+    String email,
+    String role,
+  ) async {
+    if (!canEditRole(user.role) || !canCreateRole(role)) return;
+
     try {
-      await ApiService.put("users/$id", {
+      await ApiService.put("users/${user.id}", {
         "name": name,
         "email": email,
         "role": role,
@@ -97,11 +123,84 @@ class _UsersScreenState extends State<UsersScreen> {
     }
   }
 
+  // ===================== UI =====================
+
+  void showEditDialog(User user) {
+    if (!canEditRole(user.role)) return;
+
+    final name = TextEditingController(text: user.name);
+    final email = TextEditingController(text: user.email);
+    String role = user.role;
+
+    final allowedRoles = <String>[];
+
+    if (currentRole == "manager") {
+      allowedRoles.addAll(["user", "cashier"]);
+    } else if (currentRole == "cashier") {
+      allowedRoles.add("user");
+    } else {
+      allowedRoles.addAll(["user", "cashier", "manager", "director"]);
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Edit User"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: name),
+            TextField(controller: email),
+
+            DropdownButtonFormField(
+              value: role,
+              items: allowedRoles
+                  .map(
+                    (r) => DropdownMenuItem(
+                      value: r,
+                      child: Text(r),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (v) => role = v!,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await updateUser(user, name.text, email.text, role);
+
+              if (!mounted) return;
+              Navigator.pop(context);
+            },
+            child: const Text("Save"),
+          ),
+        ],
+      ),
+    );
+  }
+
   void showCreateDialog() {
+    String role = "user";
+
     final name = TextEditingController();
     final email = TextEditingController();
     final password = TextEditingController();
-    String role = "user";
+
+    List<String> allowedRoles = [];
+
+    if (currentRole == "manager") {
+      allowedRoles = ["user", "cashier"];
+    } else if (currentRole == "cashier") {
+      allowedRoles = ["user"];
+    } else {
+      allowedRoles = ["user", "cashier", "manager", "director"];
+    }
 
     showDialog(
       context: context,
@@ -113,14 +212,12 @@ class _UsersScreenState extends State<UsersScreen> {
             TextField(controller: name, decoration: const InputDecoration(labelText: "Name")),
             TextField(controller: email, decoration: const InputDecoration(labelText: "Email")),
             TextField(controller: password, obscureText: true, decoration: const InputDecoration(labelText: "Password")),
+
             DropdownButtonFormField(
               value: role,
-              items: const [
-                DropdownMenuItem(value: "user", child: Text("User")),
-                DropdownMenuItem(value: "cashier", child: Text("Cashier")),
-                DropdownMenuItem(value: "manager", child: Text("Manager")),
-                DropdownMenuItem(value: "director", child: Text("Director")),
-              ],
+              items: allowedRoles
+                  .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                  .toList(),
               onChanged: (v) => role = v!,
             ),
           ],
@@ -132,12 +229,20 @@ class _UsersScreenState extends State<UsersScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              await createUser(
-                name: name.text,
-                email: email.text,
-                password: password.text,
-                role: role,
-              );
+              try {
+                await ApiService.post("users", {
+                  "name": name.text,
+                  "email": email.text,
+                  "password": password.text,
+                  "role": role,
+                });
+
+                fetchUsers();
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Create failed: $e")),
+                );
+              }
 
               if (!mounted) return;
               Navigator.pop(context);
@@ -149,64 +254,20 @@ class _UsersScreenState extends State<UsersScreen> {
     );
   }
 
-  void showEditDialog(User user) {
-    final name = TextEditingController(text: user.name);
-    final email = TextEditingController(text: user.email);
-    String role = user.role;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Update User"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: name),
-            TextField(controller: email),
-            DropdownButtonFormField(
-              value: role,
-              items: const [
-                DropdownMenuItem(value: "user", child: Text("User")),
-                DropdownMenuItem(value: "cashier", child: Text("Cashier")),
-                DropdownMenuItem(value: "manager", child: Text("Manager")),
-                DropdownMenuItem(value: "director", child: Text("Director")),
-              ],
-              onChanged: (v) => role = v!,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              await updateUser(
-                id: user.id,
-                name: name.text,
-                email: email.text,
-                role: role,
-              );
-
-              if (!mounted) return;
-              Navigator.pop(context);
-            },
-            child: const Text("Update"),
-          ),
-        ],
-      ),
-    );
-  }
+  // ===================== BUILD =====================
 
   @override
   Widget build(BuildContext context) {
+    final visibleUsers = users.where((u) => canViewRole(u.role)).toList();
+
     return Scaffold(
       appBar: AppBar(title: const Text("Users")),
+
       floatingActionButton: FloatingActionButton(
         onPressed: showCreateDialog,
         child: const Icon(Icons.add),
       ),
+
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : error != null
@@ -214,28 +275,33 @@ class _UsersScreenState extends State<UsersScreen> {
               : RefreshIndicator(
                   onRefresh: fetchUsers,
                   child: ListView.builder(
-                    itemCount: users.length,
+                    itemCount: visibleUsers.length,
                     itemBuilder: (context, index) {
-                      final u = users[index];
+                      final u = visibleUsers[index];
+
+                      final canEdit = canEditRole(u.role);
 
                       return Card(
                         child: ListTile(
                           title: Text(u.name),
                           subtitle: Text(u.email),
+
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(u.role),
 
-                              IconButton(
-                                icon: const Icon(Icons.edit),
-                                onPressed: () => showEditDialog(u),
-                              ),
+                              if (canEdit)
+                                IconButton(
+                                  icon: const Icon(Icons.edit),
+                                  onPressed: () => showEditDialog(u),
+                                ),
 
-                              IconButton(
-                                icon: const Icon(Icons.delete),
-                                onPressed: () => deleteUser(u.id),
-                              ),
+                              if (canEdit)
+                                IconButton(
+                                  icon: const Icon(Icons.delete),
+                                  onPressed: () => deleteUser(u),
+                                ),
                             ],
                           ),
                         ),

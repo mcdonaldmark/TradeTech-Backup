@@ -5,6 +5,7 @@ import 'screens/inventory_screen.dart';
 import 'screens/sales_screen.dart';
 import 'screens/users_screen.dart';
 import 'screens/profit_loss_screen.dart';
+import 'screens/orders_screen.dart';
 
 void main() {
   runApp(const TradeTechApp());
@@ -29,6 +30,7 @@ class TradeTechApp extends StatelessWidget {
         "/sales": (_) => const SalesScreen(),
         "/users": (_) => const UsersScreen(),
         "/profit-loss": (_) => const ProfitLossScreen(),
+        "/orders": (_) => OrdersScreen(),
       },
     );
   }

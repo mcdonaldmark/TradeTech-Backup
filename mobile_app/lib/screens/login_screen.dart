@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../core/auth/auth_service.dart';
-import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,50 +22,42 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> login() async {
-    final email = emailController.text.trim();
-    final password = passwordController.text.trim();
-
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Email and password are required")),
-      );
-      return;
-    }
-
     setState(() => loading = true);
 
     try {
-      final success = await AuthService.login(email, password);
+      final success = await AuthService.login(
+        emailController.text.trim(),
+        passwordController.text.trim(),
+      );
 
       if (!mounted) return;
 
-      setState(() => loading = false);
-
       if (success) {
-  Navigator.pushReplacementNamed(context, "/dashboard");
-} else {
+        Navigator.pushReplacementNamed(context, "/dashboard");
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Invalid email or password")),
         );
       }
     } catch (e) {
-      if (!mounted) return;
-
-      setState(() => loading = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Login error: $e")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Login error: $e")),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => loading = false); // 🔥 CRITICAL FIX
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: Center(
-          child: SingleChildScrollView(
+          child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -80,25 +71,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 TextField(
                   controller: emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: "Email",
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: "Email"),
                 ),
 
-                const SizedBox(height: 15),
+                const SizedBox(height: 10),
 
                 TextField(
                   controller: passwordController,
                   obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: "Password",
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: "Password"),
                 ),
 
-                const SizedBox(height: 25),
+                const SizedBox(height: 20),
 
                 SizedBox(
                   width: double.infinity,

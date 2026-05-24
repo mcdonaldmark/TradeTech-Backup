@@ -7,6 +7,7 @@ const userRoutes = require("./routes/userRoutes");
 const authRoutes = require("./routes/authRoutes");
 const inventoryRoutes = require("./routes/inventoryRoutes");
 const salesRoutes = require("./routes/salesRoutes");
+const orderRoutes = require("./routes/orderRoutes");
 
 const app = express();
 
@@ -29,7 +30,7 @@ const getLocalIP = () => {
 const LOCAL_IP = getLocalIP();
 
 /*
- * CORS CONFIG
+ * CORS
  */
 app.use(
   cors({
@@ -40,13 +41,14 @@ app.use(
 );
 
 /*
- * MIDDLEWARE
+ * BODY PARSERS
  */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /*
- * REQUEST LOGGING
+ * DEBUG LOGGER (VERY IMPORTANT)
+ * Helps you see wrong routes instantly
  */
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
@@ -70,6 +72,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/sales", salesRoutes);
+app.use("/api/orders", orderRoutes);
 
 /*
  * 404 HANDLER

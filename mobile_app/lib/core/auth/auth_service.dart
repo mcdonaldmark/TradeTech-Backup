@@ -4,30 +4,46 @@ import '../storage/token_storage.dart';
 class AuthService {
   static String? currentRole;
   static int? currentUserId;
+  static String? _token;
+
+  static String? get token => _token;
 
   static Future<bool> login(String email, String password) async {
-    final response = await ApiService.post("auth/login", {
-      "email": email,
-      "password": password
-    });
+    try {
+      final response = await ApiService.post(
+        "auth/login",
+        {
+          "email": email,
+          "password": password,
+        },
+        auth: false,
+      );
 
-    if (response == null) return false;
+      final data = (response is Map && response["data"] != null)
+          ? response["data"]
+          : response;
 
-    if (response["token"] != null) {
-      await TokenStorage.saveToken(response["token"]);
+      final token = data?["token"];
+      final user = data?["user"];
 
-      currentRole = response["user"]["role"];
-      currentUserId = response["user"]["id"];
+      if (token == null || user == null) return false;
+
+      _token = token;
+      await TokenStorage.saveToken(token);
+
+      currentRole = user["role"];
+      currentUserId = user["id"];
 
       return true;
+    } catch (e) {
+      return false;
     }
-
-    return false;
   }
 
-  static void logout() {
+  static Future<void> logout() async {
+    _token = null;
     currentRole = null;
     currentUserId = null;
-    TokenStorage.clear();
+    await TokenStorage.clear();
   }
 }
