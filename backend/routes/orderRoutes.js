@@ -32,13 +32,10 @@ router.get(
   getMyOrders
 );
 
-/*
- * ORDER DETAILS
- */
 router.get(
   "/:id",
   authMiddleware,
-  authorizeRoles("cashier", "manager", "director"),
+  authorizeRoles("user", "cashier", "manager", "director"),
   getOrderById
 );
 

@@ -1,8 +1,5 @@
 const pool = require("../config/db");
 
-/*
- * CREATE ORDER
- */
 exports.createOrder = async (req, res) => {
   try {
     const { items } = req.body;
@@ -101,10 +98,6 @@ exports.createOrder = async (req, res) => {
   }
 };
 
-
-/*
- * GET MY ORDERS (USER ONLY)
- */
 exports.getMyOrders = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -137,10 +130,6 @@ exports.getMyOrders = async (req, res) => {
   }
 };
 
-
-/*
- * GET ORDERS (CASHIER SEARCH)
- */
 exports.getOrders = async (req, res) => {
   try {
     const role = req.user.role;
@@ -150,9 +139,6 @@ exports.getOrders = async (req, res) => {
 
     let targetUserId = user_id;
 
-    /*
-     * 🔥 NEW: resolve search → user_id (name OR ID)
-     */
     if (!targetUserId && search) {
       const result = await pool.query(
         `
@@ -186,46 +172,46 @@ exports.getOrders = async (req, res) => {
       );
     }
 
-else if (role === "cashier") {
+    else if (role === "cashier") {
 
-  if (!user_id && !search) {
-    return res.json([]);
-  }
+      if (!user_id && !search) {
+        return res.json([]);
+      }
 
-  let targetUserId = user_id;
+      let resolvedUserId = user_id;
 
-  if (!targetUserId && search) {
-    const userResult = await pool.query(
-      `
-      SELECT id
-      FROM users
-      WHERE CAST(id AS TEXT) = $1
-         OR LOWER(name) ILIKE LOWER($1)
-      LIMIT 1
-      `,
-      [search]
-    );
+      if (!resolvedUserId && search) {
+        const userResult = await pool.query(
+          `
+          SELECT id
+          FROM users
+          WHERE CAST(id AS TEXT) = $1
+             OR LOWER(name) ILIKE LOWER($1)
+          LIMIT 1
+          `,
+          [search]
+        );
 
-    if (userResult.rows.length === 0) {
-      return res.json([]);
+        if (userResult.rows.length === 0) {
+          return res.json([]);
+        }
+
+        resolvedUserId = userResult.rows[0].id;
+      }
+
+      result = await pool.query(
+        `
+        SELECT 
+          o.*,
+          u.name AS user_name
+        FROM orders o
+        LEFT JOIN users u ON o.user_id = u.id
+        WHERE o.user_id = $1
+        ORDER BY o.created_at DESC
+        `,
+        [resolvedUserId]
+      );
     }
-
-    targetUserId = userResult.rows[0].id;
-  }
-
-  result = await pool.query(
-    `
-    SELECT 
-      o.*,
-      u.name AS user_name
-    FROM orders o
-    LEFT JOIN users u ON o.user_id = u.id
-    WHERE o.user_id = $1
-    ORDER BY o.created_at DESC
-    `,
-    [targetUserId]
-  );
-}
 
     else {
       result = await pool.query(
@@ -248,16 +234,16 @@ else if (role === "cashier") {
   }
 };
 
-
-/*
- * GET ORDER BY ID
- */
 exports.getOrderById = async (req, res) => {
   try {
     const orderRes = await pool.query(
       `
       SELECT 
-        o.*,
+        o.id,
+        o.user_id,
+        o.total,
+        o.status,
+        o.created_at,
         u.name AS user_name,
         cu.name AS created_by_name
       FROM orders o
@@ -268,58 +254,65 @@ exports.getOrderById = async (req, res) => {
       [req.params.id]
     );
 
-    if (!orderRes.rows[0]) {
+    if (!orderRes.rows.length) {
       return res.status(404).json({ message: "Order not found" });
     }
 
     const order = orderRes.rows[0];
 
+    if (req.user.role === "user" && order.user_id !== req.user.id) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
     const itemsRes = await pool.query(
       `
       SELECT 
         oi.product_id,
-        COALESCE(i.name, 'Unknown Product') AS name,
+        COALESCE(i.name, 'Deleted Product') AS name,
         oi.quantity,
         oi.price,
         oi.subtotal
       FROM order_items oi
       LEFT JOIN inventory i ON oi.product_id = i.id
       WHERE oi.order_id=$1
+      ORDER BY oi.id ASC
       `,
       [req.params.id]
     );
 
-    const items = itemsRes.rows;
+    const items = itemsRes.rows || [];
 
     const subtotal = items.reduce(
-      (sum, i) => sum + Number(i.subtotal),
+      (sum, i) => sum + Number(i.subtotal || 0),
       0
     );
 
     const taxRate = 0.07;
-    const tax = subtotal * taxRate;
+    const tax = Number((subtotal * taxRate).toFixed(2));
     const total = Number((subtotal + tax).toFixed(2));
 
-    res.json({
+    return res.json({
+      success: true,
       order: {
         id: order.id,
-        user: order.user_name,
+        user_id: order.user_id,
+        user_name: order.user_name,
         created_by: order.created_by_name,
         created_at: order.created_at,
         status: order.status,
-        total: order.total,
+        total: Number(order.total),
       },
       items,
       summary: {
         subtotal,
         tax,
-        total,
         tax_rate: taxRate,
-      },
+        total,
+      }
     });
 
   } catch (err) {
     console.error("GET ORDER ERROR:", err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
