@@ -12,10 +12,6 @@ const {
 const authMiddleware = require("../middleware/authMiddleware");
 const { authorizeRoles } = require("../middleware/authorizeRoles");
 
-/*
- * CREATE SALE
- * cashier + manager + director
- */
 router.post(
   "/",
   authMiddleware,
@@ -23,10 +19,6 @@ router.post(
   createSale
 );
 
-/*
- * GET SALES
- * manager + director only
- */
 router.get(
   "/",
   authMiddleware,
@@ -34,9 +26,6 @@ router.get(
   getSales
 );
 
-/*
- * PROFIT / LOSS
- */
 router.get(
   "/profit-loss",
   authMiddleware,
@@ -44,9 +33,6 @@ router.get(
   getProfitLoss
 );
 
-/*
- * GET SALE BY ID
- */
 router.get(
   "/:id",
   authMiddleware,
@@ -54,9 +40,6 @@ router.get(
   getSaleById
 );
 
-/*
- * DELETE SALE
- */
 router.delete(
   "/:id",
   authMiddleware,

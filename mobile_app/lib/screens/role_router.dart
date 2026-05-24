@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../core/auth/auth_service.dart';
-import 'inventory_screen.dart';
 import 'dashboard_screen.dart';
+import 'inventory_screen.dart';
+import 'user_home_screen.dart';
 
 class RoleRouter extends StatelessWidget {
   const RoleRouter({super.key});
@@ -10,6 +11,8 @@ class RoleRouter extends StatelessWidget {
   Widget build(BuildContext context) {
     final role = AuthService.currentRole;
 
+    print("ROLE ROUTER: $role");
+
     if (role == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -17,17 +20,19 @@ class RoleRouter extends StatelessWidget {
     }
 
     if (role == "user") {
-      return const InventoryScreen(); // user = products only
+      return const UserHomeScreen();
     }
 
     if (role == "cashier") {
-      return const InventoryScreen(); // cashier sees inventory + sales (handled inside screens)
+      return const DashboardScreen();
     }
 
     if (role == "manager" || role == "director") {
       return const DashboardScreen();
     }
 
-    return const InventoryScreen();
+    return const Scaffold(
+      body: Center(child: Text("Invalid role")),
+    );
   }
 }

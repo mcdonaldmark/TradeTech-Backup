@@ -2,9 +2,6 @@ const pool = require("../config/db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
-/*
- * ROLE RULES (centralized)
- */
 const roleHierarchy = {
   user: 1,
   cashier: 2,
@@ -56,7 +53,7 @@ const login = async (req, res) => {
 };
 
 /*
- * REGISTER USER (FIXED ROLE SECURITY)
+ * REGISTER USER
  */
 const registerUser = async (req, res) => {
   try {

@@ -8,16 +8,14 @@ class OrderReceiptScreen extends StatelessWidget {
 
   const OrderReceiptScreen({super.key, required this.order});
 
-  // ================= NORMALIZED DATA =================
   Map<String, dynamic> get orderData {
     return order['order'] ??
-        order; // fallback if backend is flat
+        order;
   }
 
   List get items => order['items'] ?? [];
   Map<String, dynamic> get summary => order['summary'] ?? {};
 
-  // 🔥 SINGLE SOURCE OF TRUTH FOR STATUS
   String get status {
     final s = order['status'] ??
         orderData['status'] ??
@@ -26,7 +24,6 @@ class OrderReceiptScreen extends StatelessWidget {
     return s.toString();
   }
 
-  // ================= PDF GENERATION =================
   Future<void> downloadPdf(BuildContext context) async {
     final pdf = pw.Document();
 
@@ -106,7 +103,6 @@ class OrderReceiptScreen extends StatelessWidget {
 
             const SizedBox(height: 5),
 
-            // 🔥 NOW GUARANTEED TO MATCH ORDER HISTORY
             Text(
               "Status: ${status.toUpperCase()}",
               style: const TextStyle(fontWeight: FontWeight.w500),
@@ -149,7 +145,6 @@ class OrderReceiptScreen extends StatelessWidget {
 
             const Divider(),
 
-            // ================= CLEAN SUMMARY =================
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(

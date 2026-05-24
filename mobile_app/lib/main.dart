@@ -21,7 +21,6 @@ class TradeTechApp extends StatelessWidget {
       title: 'TradeTech',
       theme: ThemeData(primarySwatch: Colors.blue),
 
-      // START HERE
       home: const LoginScreen(),
 
       routes: {

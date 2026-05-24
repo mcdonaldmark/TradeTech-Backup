@@ -8,26 +8,28 @@ const {
   createOrder,
   getOrders,
   getOrderById,
+  getMyOrders,
 } = require("../controllers/orderController");
 
-/*
- * CASHIER CREATES ORDER
- */
 router.post(
   "/",
   authMiddleware,
-  authorizeRoles("cashier"),
+  authorizeRoles("cashier", "user"),
   createOrder
 );
 
-/*
- * VIEW ORDERS
- */
 router.get(
   "/",
   authMiddleware,
   authorizeRoles("cashier", "manager", "director"),
   getOrders
+);
+
+router.get(
+  "/my",
+  authMiddleware,
+  authorizeRoles("user", "cashier", "manager", "director"),
+  getMyOrders
 );
 
 /*

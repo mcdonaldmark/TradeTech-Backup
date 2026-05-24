@@ -13,11 +13,6 @@ const roleRank = {
   director: 4,
 };
 
-/*
- * =========================
- * ROLE FILTER PER USER
- * =========================
- */
 const getAllowedRolesForViewer = (role) => {
   if (role === "director") return ["user", "cashier", "manager", "director"];
   if (role === "manager") return ["user", "cashier"]; // ❌ hides manager + director
@@ -25,11 +20,6 @@ const getAllowedRolesForViewer = (role) => {
   return ["user"];
 };
 
-/*
- * =========================
- * CREATE USER (STRICT RULES)
- * =========================
- */
 router.post("/", async (req, res) => {
   try {
     const { name, email, password, role = "user" } = req.body;
@@ -38,7 +28,7 @@ router.post("/", async (req, res) => {
 
     const allowedRolesToCreate = {
       director: ["user", "cashier", "manager", "director"],
-      manager: ["user", "cashier"], // ❌ cannot create manager/director
+      manager: ["user", "cashier"],
       cashier: ["user"], // ❌ only users
       user: [],
     };
@@ -62,11 +52,6 @@ router.post("/", async (req, res) => {
   }
 });
 
-/*
- * =========================
- * GET USERS (FILTERED)
- * =========================
- */
 router.get("/", async (req, res) => {
   try {
     const viewerRole = req.user.role;
@@ -86,11 +71,6 @@ router.get("/", async (req, res) => {
   }
 });
 
-/*
- * =========================
- * UPDATE USER (STRICT RULES)
- * =========================
- */
 router.put("/:id", async (req, res) => {
   try {
     const viewerRole = req.user.role;
@@ -122,11 +102,6 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-/*
- * =========================
- * DELETE USER (STRICT RULES)
- * =========================
- */
 router.delete("/:id", async (req, res) => {
   try {
     const viewerRole = req.user.role;

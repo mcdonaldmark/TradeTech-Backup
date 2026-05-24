@@ -85,7 +85,7 @@ exports.createSale = async (req, res) => {
 };
 
 /*
- * GET SALES (SAFE JOIN)
+ * GET SALES
  */
 exports.getSales = async (req, res) => {
   try {

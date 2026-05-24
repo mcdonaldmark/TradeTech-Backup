@@ -13,9 +13,7 @@ const {
 const authMiddleware = require("../middleware/authMiddleware");
 const { authorizeRoles } = require("../middleware/authorizeRoles");
 
-/*
-  USERS + CASHIERS SEE PRODUCTS
-*/
+
 router.get(
   "/",
   authMiddleware,
@@ -23,9 +21,6 @@ router.get(
   getProducts
 );
 
-/*
-  STOCK CHECK (FIXED: moved ABOVE /:id)
-*/
 router.get(
   "/check",
   authMiddleware,
@@ -33,9 +28,6 @@ router.get(
   checkStock
 );
 
-/*
-  PRODUCT DETAILS
-*/
 router.get(
   "/:id",
   authMiddleware,
@@ -43,9 +35,6 @@ router.get(
   getProductById
 );
 
-/*
-  ONLY MANAGER + DIRECTOR CAN MODIFY
-*/
 router.post(
   "/",
   authMiddleware,

@@ -11,9 +11,6 @@ const orderRoutes = require("./routes/orderRoutes");
 
 const app = express();
 
-/*
- * GET LOCAL IP
- */
 const getLocalIP = () => {
   const nets = os.networkInterfaces();
 
@@ -29,9 +26,6 @@ const getLocalIP = () => {
 
 const LOCAL_IP = getLocalIP();
 
-/*
- * CORS
- */
 app.use(
   cors({
     origin: "*",
@@ -40,24 +34,14 @@ app.use(
   })
 );
 
-/*
- * BODY PARSERS
- */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-/*
- * DEBUG LOGGER (VERY IMPORTANT)
- * Helps you see wrong routes instantly
- */
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
   next();
 });
 
-/*
- * HEALTH CHECK
- */
 app.get("/", (req, res) => {
   res.json({
     message: "API is running",
@@ -65,18 +49,13 @@ app.get("/", (req, res) => {
   });
 });
 
-/*
- * ROUTES
- */
+
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/sales", salesRoutes);
 app.use("/api/orders", orderRoutes);
 
-/*
- * 404 HANDLER
- */
 app.use((req, res) => {
   console.log(`Route not found: ${req.method} ${req.url}`);
 
@@ -85,9 +64,6 @@ app.use((req, res) => {
   });
 });
 
-/*
- * ERROR HANDLER
- */
 app.use((err, req, res, next) => {
   console.error("Server error:", err);
 
@@ -96,9 +72,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-/*
- * START SERVER
- */
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, "0.0.0.0", () => {

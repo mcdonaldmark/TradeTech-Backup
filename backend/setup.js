@@ -4,11 +4,6 @@ const setupDatabase = async () => {
     try {
         console.log("Creating tables...");
 
-        /*
-         * =========================
-         * USERS TABLE
-         * =========================
-         */
         await pool.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -22,11 +17,6 @@ const setupDatabase = async () => {
             );
         `);
 
-        /*
-         * =========================
-         * INVENTORY TABLE
-         * =========================
-         */
         await pool.query(`
             CREATE TABLE IF NOT EXISTS inventory (
                 id SERIAL PRIMARY KEY,
@@ -40,11 +30,7 @@ const setupDatabase = async () => {
             );
         `);
 
-        /*
-         * =========================
-         * SALES TABLE
-         * =========================
-         */
+
         await pool.query(`
             CREATE TABLE IF NOT EXISTS sales (
                 id SERIAL PRIMARY KEY,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/auth/auth_service.dart';
+import 'role_router.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -33,7 +34,13 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (success) {
-        Navigator.pushReplacementNamed(context, "/dashboard");
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const RoleRouter(),
+          ),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Invalid email or password")),
@@ -47,7 +54,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } finally {
       if (mounted) {
-        setState(() => loading = false); // 🔥 CRITICAL FIX
+        setState(() => loading = false);
       }
     }
   }
@@ -66,24 +73,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   "TradeTech Login",
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
-
                 const SizedBox(height: 30),
-
                 TextField(
                   controller: emailController,
                   decoration: const InputDecoration(labelText: "Email"),
                 ),
-
                 const SizedBox(height: 10),
-
                 TextField(
                   controller: passwordController,
                   obscureText: true,
                   decoration: const InputDecoration(labelText: "Password"),
                 ),
-
                 const SizedBox(height: 20),
-
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(

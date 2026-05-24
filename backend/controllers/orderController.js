@@ -1,13 +1,18 @@
 const pool = require("../config/db");
 
 /*
- * CREATE ORDER (cashier only)
+ * CREATE ORDER
  */
 exports.createOrder = async (req, res) => {
   try {
-    const { user_id, items } = req.body;
+    const { items } = req.body;
 
-    const created_by = req.user.id || req.user.userId;
+    const user_id =
+      req.user.role === "user"
+        ? req.user.id
+        : req.body.user_id;
+
+    const created_by = req.user.id;
 
     if (!items || items.length === 0) {
       return res.status(400).json({ message: "No items in order" });
@@ -98,25 +103,140 @@ exports.createOrder = async (req, res) => {
 
 
 /*
- * GET ORDERS (role-based)
+ * GET MY ORDERS (USER ONLY)
+ */
+exports.getMyOrders = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    if (!userId) {
+      return res.status(401).json({ message: "Invalid user session" });
+    }
+
+    const result = await pool.query(
+      `
+      SELECT 
+        o.id,
+        o.user_id,
+        o.total,
+        o.status,
+        o.created_at,
+        u.name AS user_name
+      FROM orders o
+      LEFT JOIN users u ON o.user_id = u.id
+      WHERE o.user_id = $1
+      ORDER BY o.created_at DESC
+      `,
+      [userId]
+    );
+
+    return res.json(result.rows);
+  } catch (err) {
+    console.error("GET MY ORDERS ERROR:", err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+
+/*
+ * GET ORDERS (CASHIER SEARCH)
  */
 exports.getOrders = async (req, res) => {
   try {
     const role = req.user.role;
-    const userId = req.user.id || req.user.userId;
+    const userId = req.user.id;
+
+    const { user_id, search } = req.query;
+
+    let targetUserId = user_id;
+
+    /*
+     * 🔥 NEW: resolve search → user_id (name OR ID)
+     */
+    if (!targetUserId && search) {
+      const result = await pool.query(
+        `
+        SELECT id
+        FROM users
+        WHERE 
+          CAST(id AS TEXT) = $1
+          OR LOWER(name) LIKE LOWER($2)
+        LIMIT 1
+        `,
+        [search, `%${search}%`]
+      );
+
+      targetUserId = result.rows[0]?.id;
+    }
 
     let result;
 
-    if (role === "cashier") {
+    if (role === "user") {
       result = await pool.query(
-        `SELECT * FROM orders 
-         WHERE created_by=$1 
-         ORDER BY created_at DESC`,
+        `
+        SELECT 
+          o.*,
+          u.name AS user_name
+        FROM orders o
+        LEFT JOIN users u ON o.user_id = u.id
+        WHERE o.user_id = $1
+        ORDER BY o.created_at DESC
+        `,
         [userId]
       );
-    } else {
+    }
+
+else if (role === "cashier") {
+
+  if (!user_id && !search) {
+    return res.json([]);
+  }
+
+  let targetUserId = user_id;
+
+  if (!targetUserId && search) {
+    const userResult = await pool.query(
+      `
+      SELECT id
+      FROM users
+      WHERE CAST(id AS TEXT) = $1
+         OR LOWER(name) ILIKE LOWER($1)
+      LIMIT 1
+      `,
+      [search]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.json([]);
+    }
+
+    targetUserId = userResult.rows[0].id;
+  }
+
+  result = await pool.query(
+    `
+    SELECT 
+      o.*,
+      u.name AS user_name
+    FROM orders o
+    LEFT JOIN users u ON o.user_id = u.id
+    WHERE o.user_id = $1
+    ORDER BY o.created_at DESC
+    `,
+    [targetUserId]
+  );
+}
+
+    else {
       result = await pool.query(
-        `SELECT * FROM orders ORDER BY created_at DESC`
+        `
+        SELECT 
+          o.*,
+          u.name AS user_name
+        FROM orders o
+        LEFT JOIN users u ON o.user_id = u.id
+        ORDER BY o.created_at DESC
+        `
       );
     }
 
@@ -130,15 +250,21 @@ exports.getOrders = async (req, res) => {
 
 
 /*
- * GET ORDER DETAILS
+ * GET ORDER BY ID
  */
 exports.getOrderById = async (req, res) => {
   try {
     const orderRes = await pool.query(
-      `SELECT o.*, u.name AS user_name
-       FROM orders o
-       LEFT JOIN users u ON o.user_id = u.id
-       WHERE o.id=$1`,
+      `
+      SELECT 
+        o.*,
+        u.name AS user_name,
+        cu.name AS created_by_name
+      FROM orders o
+      LEFT JOIN users u ON o.user_id = u.id
+      LEFT JOIN users cu ON o.created_by = cu.id
+      WHERE o.id=$1
+      `,
       [req.params.id]
     );
 
@@ -149,32 +275,39 @@ exports.getOrderById = async (req, res) => {
     const order = orderRes.rows[0];
 
     const itemsRes = await pool.query(
-      `SELECT 
-          oi.product_id,
-          COALESCE(i.name, 'Unknown Product') AS name,
-          oi.quantity,
-          oi.price,
-          oi.subtotal
-       FROM order_items oi
-       LEFT JOIN inventory i ON oi.product_id = i.id
-       WHERE oi.order_id=$1`,
+      `
+      SELECT 
+        oi.product_id,
+        COALESCE(i.name, 'Unknown Product') AS name,
+        oi.quantity,
+        oi.price,
+        oi.subtotal
+      FROM order_items oi
+      LEFT JOIN inventory i ON oi.product_id = i.id
+      WHERE oi.order_id=$1
+      `,
       [req.params.id]
     );
 
     const items = itemsRes.rows;
 
-    const subtotal = items.reduce((sum, i) => sum + Number(i.subtotal), 0);
+    const subtotal = items.reduce(
+      (sum, i) => sum + Number(i.subtotal),
+      0
+    );
 
     const taxRate = 0.07;
     const tax = subtotal * taxRate;
-    const total = Number((subtotal + tax).toFixed(2));10;
+    const total = Number((subtotal + tax).toFixed(2));
 
     res.json({
       order: {
         id: order.id,
-        customer: order.user_name,
+        user: order.user_name,
+        created_by: order.created_by_name,
         created_at: order.created_at,
-        status: order.status,   // ✅ FIXED: THIS WAS MISSING
+        status: order.status,
+        total: order.total,
       },
       items,
       summary: {

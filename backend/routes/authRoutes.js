@@ -8,23 +8,11 @@ const authMiddleware = require("../middleware/authMiddleware");
 // controllers
 const { login, registerUser } = require("../controllers/authController");
 
-/*
- * =========================
- * AUTH ROUTES
- * =========================
- */
-
 // LOGIN
 router.post("/login", login);
 
 // REGISTER (public or controlled inside controller)
 router.post("/register", registerUser);
-
-/*
- * =========================
- * USER MANAGEMENT ROUTES
- * =========================
- */
 
 const rolePermissions = {
   user: ["user"],
@@ -38,7 +26,7 @@ const canCreateRole = (creatorRole, targetRole) => {
 };
 
 /*
- * CREATE USER (ADMIN STYLE)
+ * CREATE USER
  */
 router.post("/", authMiddleware, async (req, res) => {
   try {

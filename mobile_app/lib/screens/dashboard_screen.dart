@@ -52,7 +52,6 @@ class DashboardScreen extends StatelessWidget {
 
           const SizedBox(height: 20),
 
-          // ================= INVENTORY =================
           _card(
             title: "Inventory",
             icon: Icons.inventory,
@@ -61,7 +60,6 @@ class DashboardScreen extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          // ================= SALES =================
           if (!isCashier) ...[
             _card(
               title: "Sales",
@@ -71,7 +69,6 @@ class DashboardScreen extends StatelessWidget {
             const SizedBox(height: 12),
           ],
 
-          // ================= USERS =================
           _card(
             title: "Users",
             icon: Icons.people,
@@ -80,7 +77,6 @@ class DashboardScreen extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          // ================= CASHIER FEATURES =================
           if (isCashier) ...[
             _card(
               title: "Create Order",
@@ -113,7 +109,6 @@ class DashboardScreen extends StatelessWidget {
             const SizedBox(height: 12),
           ],
 
-          // ================= PROFIT & LOSS =================
           if (!isCashier)
             _card(
               title: "Profit & Loss",

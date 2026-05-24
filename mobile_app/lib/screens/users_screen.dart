@@ -23,8 +23,6 @@ class _UsersScreenState extends State<UsersScreen> {
     fetchUsers();
   }
 
-  // ===================== ROLE PERMISSIONS =====================
-
   bool canViewRole(String role) {
     if (currentRole == "manager") {
       return role == "user" || role == "cashier";
@@ -34,7 +32,7 @@ class _UsersScreenState extends State<UsersScreen> {
       return role == "user";
     }
 
-    return true; // director/admin sees all
+    return true;
   }
 
   bool canEditRole(String role) {
@@ -61,8 +59,6 @@ class _UsersScreenState extends State<UsersScreen> {
     return true;
   }
 
-  // ===================== DATA =====================
-
   Future<void> fetchUsers() async {
     setState(() {
       loading = true;
@@ -84,8 +80,6 @@ class _UsersScreenState extends State<UsersScreen> {
       });
     }
   }
-
-  // ===================== ACTIONS =====================
 
   Future<void> deleteUser(User user) async {
     if (!canEditRole(user.role)) return;
@@ -122,8 +116,6 @@ class _UsersScreenState extends State<UsersScreen> {
       );
     }
   }
-
-  // ===================== UI =====================
 
   void showEditDialog(User user) {
     if (!canEditRole(user.role)) return;
@@ -253,8 +245,6 @@ class _UsersScreenState extends State<UsersScreen> {
       ),
     );
   }
-
-  // ===================== BUILD =====================
 
   @override
   Widget build(BuildContext context) {

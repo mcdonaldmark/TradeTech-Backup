@@ -24,7 +24,7 @@ class ApiService {
             Uri.parse("$baseUrl/$endpoint"),
             headers: await _headers(),
           )
-          .timeout(const Duration(seconds: 10)); // 🔥 FIX
+          .timeout(const Duration(seconds: 10));
 
       return _handleResponse(res);
     } catch (e) {

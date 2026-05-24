@@ -53,11 +53,10 @@ class _SalesScreenState extends State<SalesScreen> {
     }
   }
 
-  // ✅ NEW: DELETE SALE
   Future<void> deleteSale(int id) async {
     try {
       await ApiService.delete("sales/$id");
-      fetchSales(); // refresh so totals update correctly
+      fetchSales();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Delete failed: $e")),
@@ -209,7 +208,6 @@ class _SalesScreenState extends State<SalesScreen> {
                                       ),
                                     ),
 
-                                    // ✅ NEW DELETE BUTTON
                                     IconButton(
                                       icon: const Icon(Icons.delete, color: Colors.red),
                                       onPressed: () => deleteSale(s.id),

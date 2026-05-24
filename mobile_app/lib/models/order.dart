@@ -16,10 +16,10 @@ class Order {
   factory Order.fromJson(Map<String, dynamic> json) {
     return Order(
       id: json["id"],
-      userName: json["user_name"],
+      userName: json["user_name"] ?? "Unknown User",
       total: double.parse(json["total"].toString()),
-      status: json["status"],
-      createdAt: json["created_at"],
+      status: json["status"] ?? "pending",
+      createdAt: json["created_at"] ?? "",
     );
   }
 }

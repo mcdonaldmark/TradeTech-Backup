@@ -4,6 +4,7 @@ import '../storage/token_storage.dart';
 class AuthService {
   static String? currentRole;
   static int? currentUserId;
+  static String? currentUserName;
   static String? _token;
 
   static String? get token => _token;
@@ -33,6 +34,7 @@ class AuthService {
 
       currentRole = user["role"];
       currentUserId = user["id"];
+      currentUserName = user["name"];
 
       return true;
     } catch (e) {
@@ -44,6 +46,7 @@ class AuthService {
     _token = null;
     currentRole = null;
     currentUserId = null;
+    currentUserName = null;
     await TokenStorage.clear();
   }
 }

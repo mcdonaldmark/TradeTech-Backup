@@ -94,10 +94,8 @@ const deleteProduct = async (req, res) => {
   try {
     const id = req.params.id;
 
-    // HARD DELETE (FIXED ISSUE YOU REPORTED)
     await pool.query("DELETE FROM inventory WHERE id=$1", [id]);
 
-    // unlink sales safely
     await pool.query(
       "UPDATE sales SET product_id = NULL WHERE product_id = $1",
       [id]

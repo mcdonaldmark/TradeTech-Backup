@@ -22,15 +22,55 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   int? selectedUserId;
   String? selectedUserName;
 
-  final TextEditingController userSearchController =
-      TextEditingController();
-
+  final TextEditingController userSearchController = TextEditingController();
   List filteredUsers = [];
 
   @override
   void initState() {
     super.initState();
     loadData();
+
+    final role = AuthService.currentRole;
+
+    if (role == "user") {
+      selectedUserId = AuthService.currentUserId;
+      _loadCurrentUserName(); // 🔥 NEW
+    }
+  }
+
+  Future<void> _loadCurrentUserName() async {
+    try {
+      final token = await TokenStorage.getToken();
+
+      final res = await http.get(
+        Uri.parse("$baseUrl/users"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+      );
+
+      final allUsers = jsonDecode(res.body);
+
+      final current = allUsers.firstWhere(
+        (u) => u['id'] == AuthService.currentUserId,
+        orElse: () => null,
+      );
+
+      if (current != null) {
+        setState(() {
+          selectedUserName = current['name']; // ✅ REAL NAME
+        });
+      } else {
+        setState(() {
+          selectedUserName = "Unknown User";
+        });
+      }
+    } catch (e) {
+      setState(() {
+        selectedUserName = "Unknown User";
+      });
+    }
   }
 
   Future<void> loadData() async {
@@ -58,22 +98,20 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     });
   }
 
-  // ================= USER SEARCH =================
-
   void searchUser(String query) {
+    final role = AuthService.currentRole;
+
+    if (role == "user") return;
+
     if (query.trim().isEmpty) {
       setState(() => filteredUsers = []);
       return;
     }
 
     final results = users.where((u) {
-      final idMatch =
-          u['id'].toString().contains(query.trim());
-
-      final nameMatch = u['name']
-          .toString()
-          .toLowerCase()
-          .contains(query.toLowerCase());
+      final idMatch = u['id'].toString().contains(query.trim());
+      final nameMatch =
+          u['name'].toString().toLowerCase().contains(query.toLowerCase());
 
       return idMatch || nameMatch;
     }).toList();
@@ -84,22 +122,18 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   }
 
   void selectUser(dynamic user) {
+    final role = AuthService.currentRole;
+
+    if (role == "user") return;
+
     setState(() {
       selectedUserId = user['id'];
       selectedUserName = user['name'];
 
-      userSearchController.text =
-          "${user['name']} (#${user['id']})";
-
+      userSearchController.text = "${user['name']} (#${user['id']})";
       filteredUsers.clear();
     });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Selected: ${user['name']}")),
-    );
   }
-
-  // ================= CART =================
 
   void addToCart(product) {
     final index =
@@ -121,13 +155,13 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   double get total =>
       cart.fold(0, (sum, item) => sum + item.subtotal);
 
-  // ================= SUBMIT ORDER =================
-
   Future<void> submitOrder() async {
     final token = await TokenStorage.getToken();
 
+    final userId = selectedUserId ?? AuthService.currentUserId;
+
     final body = {
-      "user_id": selectedUserId,
+      "user_id": userId,
       "items": cart
           .map((e) => {
                 "product_id": e.productId,
@@ -148,10 +182,13 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     if (res.statusCode == 201) {
       setState(() {
         cart.clear();
-        selectedUserId = null;
-        selectedUserName = null;
-        userSearchController.clear();
-        filteredUsers.clear();
+
+        if (AuthService.currentRole != "user") {
+          selectedUserId = null;
+          selectedUserName = null;
+          userSearchController.clear();
+          filteredUsers.clear();
+        }
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -164,72 +201,70 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     }
   }
 
-  // ================= UI =================
-
   @override
   Widget build(BuildContext context) {
+    final role = AuthService.currentRole;
+    final isUser = role == "user";
+
     return Scaffold(
       appBar: AppBar(title: const Text("Create Order")),
-
       body: Column(
         children: [
-          // ================= USER SEARCH =================
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: [
-                TextField(
-                  controller: userSearchController,
-                  decoration: const InputDecoration(
-                    labelText: "Search User (ID or Name)",
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: searchUser,
-                ),
 
-                if (filteredUsers.isNotEmpty)
-                  Container(
-                    margin: const EdgeInsets.only(top: 5),
-                    constraints: const BoxConstraints(maxHeight: 200),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: filteredUsers.length,
-                      itemBuilder: (_, i) {
-                        final user = filteredUsers[i];
-
-                        return ListTile(
-                          title: Text(user['name']),
-                          subtitle: Text("ID: ${user['id']}"),
-                          onTap: () => selectUser(user),
-                        );
-                      },
-                    ),
-                  ),
-              ],
-            ),
-          ),
-
-          if (selectedUserId != null)
+          if (isUser)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.all(12),
               child: Card(
-                color: Colors.green.shade50,
+                color: Colors.blue.shade50,
                 child: ListTile(
-                  leading: const Icon(Icons.person, color: Colors.green),
-                  title: Text(selectedUserName ?? ""),
-                  subtitle: Text("User ID: $selectedUserId"),
+                  leading: const Icon(Icons.person),
+                  title: Text(selectedUserName ?? "Loading..."),
+                  subtitle: Text(
+                    "User ID: ${selectedUserId ?? ''}",
+                  ),
                 ),
+              ),
+            ),
+
+          if (!isUser)
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: userSearchController,
+                    decoration: const InputDecoration(
+                      labelText: "Search User (ID or Name)",
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: searchUser,
+                  ),
+
+                  if (filteredUsers.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(top: 5),
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: filteredUsers.length,
+                        itemBuilder: (_, i) {
+                          final user = filteredUsers[i];
+
+                          return ListTile(
+                            title: Text(user['name']),
+                            subtitle: Text("ID: ${user['id']}"),
+                            onTap: () => selectUser(user),
+                          );
+                        },
+                      ),
+                    ),
+                ],
               ),
             ),
 
           const Divider(),
 
-          // ================= PRODUCTS =================
           Expanded(
             child: ListView.builder(
               itemCount: products.length,
@@ -250,7 +285,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
           const Divider(),
 
-          // ================= CART =================
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
@@ -262,15 +296,11 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-
                 const SizedBox(height: 10),
-
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: cart.isEmpty || selectedUserId == null
-                        ? null
-                        : submitOrder,
+                    onPressed: cart.isEmpty ? null : submitOrder,
                     child: const Text("Submit Order"),
                   ),
                 ),
