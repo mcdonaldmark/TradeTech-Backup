@@ -2,53 +2,66 @@ const express = require("express");
 const router = express.Router();
 
 const {
-    createSale,
-    getSales,
-    getProfitLoss,
-    getSaleById   // ✅ ADD THIS (THIS WAS MISSING)
+  createSale,
+  getSales,
+  getProfitLoss,
+  getSaleById,
+  deleteSale
 } = require("../controllers/salesController");
 
 const authMiddleware = require("../middleware/authMiddleware");
 const { authorizeRoles } = require("../middleware/authorizeRoles");
 
 /*
- * CREATE SALE → CASHIER + MANAGER + DIRECTOR
+ * CREATE SALE
+ * cashier + manager + director
  */
 router.post(
-    "/",
-    authMiddleware,
-    authorizeRoles("cashier", "manager", "director"),
-    createSale
+  "/",
+  authMiddleware,
+  authorizeRoles("cashier", "manager", "director"),
+  createSale
 );
 
 /*
- * VIEW SALES → CASHIER + MANAGER + DIRECTOR
+ * GET SALES
+ * manager + director only
  */
 router.get(
-    "/",
-    authMiddleware,
-    authorizeRoles("cashier", "manager", "director"),
-    getSales
+  "/",
+  authMiddleware,
+  authorizeRoles("manager", "director"),
+  getSales
 );
 
 /*
- * PROFIT / LOSS → MANAGER + DIRECTOR ONLY
+ * PROFIT / LOSS
  */
 router.get(
-    "/profit-loss",
-    authMiddleware,
-    authorizeRoles("manager", "director"),
-    getProfitLoss
+  "/profit-loss",
+  authMiddleware,
+  authorizeRoles("manager", "director"),
+  getProfitLoss
 );
 
 /*
  * GET SALE BY ID
  */
 router.get(
-    "/:id",
-    authMiddleware,
-    authorizeRoles("cashier", "manager", "director"),
-    getSaleById
+  "/:id",
+  authMiddleware,
+  authorizeRoles("manager", "director"),
+  getSaleById
+);
+
+/*
+ * DELETE SALE
+ */
+router.delete(
+  "/:id",
+  authMiddleware,
+  authorizeRoles("manager", "director"),
+  deleteSale
 );
 
 module.exports = router;

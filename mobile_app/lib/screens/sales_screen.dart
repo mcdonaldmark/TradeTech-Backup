@@ -42,23 +42,29 @@ class _SalesScreenState extends State<SalesScreen> {
     }
   }
 
-  // ---------------- CREATE SALE ----------------
   Future<void> createSale(Map data) async {
     try {
       await ApiService.post("sales", data);
       fetchSales();
     } catch (e) {
-      showError(e);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
     }
   }
 
-  void showError(Object e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(e.toString())),
-    );
+  // ✅ NEW: DELETE SALE
+  Future<void> deleteSale(int id) async {
+    try {
+      await ApiService.delete("sales/$id");
+      fetchSales(); // refresh so totals update correctly
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Delete failed: $e")),
+      );
+    }
   }
 
-  // ---------------- DIALOG ----------------
   void showSaleDialog() {
     final productController = TextEditingController();
     final qtyController = TextEditingController();
@@ -72,16 +78,13 @@ class _SalesScreenState extends State<SalesScreen> {
           children: [
             TextField(
               controller: productController,
-              decoration: const InputDecoration(
-                labelText: "Product Name or ID",
-              ),
+              decoration:
+                  const InputDecoration(labelText: "Product Name or ID"),
             ),
             TextField(
               controller: qtyController,
-              decoration: const InputDecoration(
-                labelText: "Quantity",
-              ),
               keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: "Quantity"),
             ),
           ],
         ),
@@ -112,18 +115,13 @@ class _SalesScreenState extends State<SalesScreen> {
     );
   }
 
-  // ---------------- UI ----------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Sales"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: showSaleDialog,
-          )
-        ],
+      appBar: AppBar(title: const Text("Sales")),
+      floatingActionButton: FloatingActionButton(
+        onPressed: showSaleDialog,
+        child: const Icon(Icons.add),
       ),
       body: RefreshIndicator(
         onRefresh: fetchSales,
@@ -143,28 +141,87 @@ class _SalesScreenState extends State<SalesScreen> {
                       )
                     ],
                   )
-                : ListView.builder(
-                    itemCount: sales.length,
-                    itemBuilder: (context, index) {
-                      final s = sales[index];
-
-                      return Card(
-                        child: ListTile(
-                          title: Text(s.productName),
-                          subtitle: Text("Qty sold: ${s.quantitySold}"),
-                          trailing: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text("\$${s.totalRevenue}"),
-                              Text(
-                                "Profit: \$${s.profit}",
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
+                : Column(
+                    children: [
+                      // SUMMARY
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                      );
-                    },
+                        child: Builder(
+                          builder: (_) {
+                            final totalRevenue =
+                                sales.fold<double>(0, (sum, s) => sum + s.totalRevenue);
+
+                            final totalProfit =
+                                sales.fold<double>(0, (sum, s) => sum + s.profit);
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  "Sales Summary",
+                                  style: TextStyle(
+                                      fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                    "Total Revenue: \$${totalRevenue.toStringAsFixed(2)}"),
+                                Text(
+                                  "Total Profit: \$${totalProfit.toStringAsFixed(2)}",
+                                  style: TextStyle(
+                                    color: totalProfit >= 0
+                                        ? Colors.green
+                                        : Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: sales.length,
+                          itemBuilder: (context, index) {
+                            final s = sales[index];
+
+                            return Card(
+                              child: ListTile(
+                                title: Text(s.productName),
+                                subtitle: Text(
+                                    "Qty: ${s.quantitySold} | Revenue: \$${s.totalRevenue.toStringAsFixed(2)}"),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      "\$${s.profit.toStringAsFixed(2)}",
+                                      style: TextStyle(
+                                        color: s.profit >= 0
+                                            ? Colors.green
+                                            : Colors.red,
+                                      ),
+                                    ),
+
+                                    // ✅ NEW DELETE BUTTON
+                                    IconButton(
+                                      icon: const Icon(Icons.delete, color: Colors.red),
+                                      onPressed: () => deleteSale(s.id),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
       ),
     );

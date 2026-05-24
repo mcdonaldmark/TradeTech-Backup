@@ -1,23 +1,16 @@
 const pool = require("../config/db");
 
-/*
- * READ INVENTORY
- */
 const getProducts = async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT id, name, description, quantity, price, image_url FROM inventory ORDER BY id DESC"
     );
-
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-/*
- * SINGLE PRODUCT
- */
 const getProductById = async (req, res) => {
   try {
     const result = await pool.query(
@@ -31,19 +24,12 @@ const getProductById = async (req, res) => {
   }
 };
 
-/*
- * USER STOCK CHECK
- */
 const checkStock = async (req, res) => {
   try {
     const { product_name } = req.query;
 
-    if (!product_name) {
-      return res.status(400).json({ message: "product_name is required" });
-    }
-
     const result = await pool.query(
-      `SELECT name, quantity FROM inventory WHERE LOWER(name)=LOWER($1)`,
+      "SELECT name, quantity FROM inventory WHERE LOWER(name)=LOWER($1)",
       [product_name]
     );
 
@@ -64,9 +50,6 @@ const checkStock = async (req, res) => {
   }
 };
 
-/*
- * CREATE PRODUCT
- */
 const createProduct = async (req, res) => {
   try {
     const { name, description, quantity, price, image_url, cost_price } = req.body;
@@ -84,9 +67,6 @@ const createProduct = async (req, res) => {
   }
 };
 
-/*
- * UPDATE PRODUCT
- */
 const updateProduct = async (req, res) => {
   try {
     const { name, description, quantity, price, image_url, cost_price } = req.body;
@@ -110,14 +90,21 @@ const updateProduct = async (req, res) => {
   }
 };
 
-/*
- * DELETE PRODUCT
- */
 const deleteProduct = async (req, res) => {
   try {
-    await pool.query("DELETE FROM inventory WHERE id=$1", [req.params.id]);
+    const id = req.params.id;
 
-    res.json({ message: "Deleted successfully" });
+    // HARD DELETE (FIXED ISSUE YOU REPORTED)
+    await pool.query("DELETE FROM inventory WHERE id=$1", [id]);
+
+    // unlink sales safely
+    await pool.query(
+      "UPDATE sales SET product_id = NULL WHERE product_id = $1",
+      [id]
+    );
+
+    res.json({ message: "Product deleted permanently" });
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

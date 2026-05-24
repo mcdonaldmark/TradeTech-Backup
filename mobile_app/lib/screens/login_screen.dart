@@ -43,11 +43,8 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => loading = false);
 
       if (success) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
-      } else {
+  Navigator.pushReplacementNamed(context, "/dashboard");
+} else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Invalid email or password")),
         );

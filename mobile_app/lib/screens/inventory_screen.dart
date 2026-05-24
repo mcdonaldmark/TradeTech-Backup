@@ -42,48 +42,59 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
-  // ---------------- CREATE ----------------
   Future<void> createProduct(Map data) async {
     try {
       await ApiService.post("inventory", data);
       fetchProducts();
     } catch (e) {
-      showError(e);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
     }
   }
 
-  // ---------------- UPDATE ----------------
   Future<void> updateProduct(int id, Map data) async {
     try {
       await ApiService.put("inventory/$id", data);
       fetchProducts();
     } catch (e) {
-      showError(e);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
     }
   }
 
-  // ---------------- DELETE ----------------
   Future<void> deleteProduct(int id) async {
     try {
       await ApiService.delete("inventory/$id");
-      fetchProducts();
+
+      setState(() {
+        products.removeWhere((p) => p.id == id);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Product deleted")),
+      );
     } catch (e) {
-      showError(e);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
     }
   }
 
-  void showError(Object e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(e.toString())),
-    );
-  }
-
-  // ---------------- DIALOG: CREATE / EDIT ----------------
   void showProductDialog({Product? product}) {
-    final nameController = TextEditingController(text: product?.name ?? "");
-    final descController = TextEditingController(text: product?.description ?? "");
-    final qtyController = TextEditingController(text: product?.quantity.toString() ?? "");
-    final priceController = TextEditingController(text: product?.price.toString() ?? "");
+    final nameController =
+        TextEditingController(text: product?.name ?? "");
+    final descController =
+        TextEditingController(text: product?.description ?? "");
+    final qtyController =
+        TextEditingController(text: product?.quantity.toString() ?? "");
+    final priceController =
+        TextEditingController(text: product?.price.toString() ?? "");
+
+    final imageController =
+        TextEditingController(text: product?.imageUrl ?? "");
+    final costController = TextEditingController();
 
     showDialog(
       context: context,
@@ -92,10 +103,33 @@ class _InventoryScreenState extends State<InventoryScreen> {
         content: SingleChildScrollView(
           child: Column(
             children: [
-              TextField(controller: nameController, decoration: const InputDecoration(labelText: "Name")),
-              TextField(controller: descController, decoration: const InputDecoration(labelText: "Description")),
-              TextField(controller: qtyController, decoration: const InputDecoration(labelText: "Quantity")),
-              TextField(controller: priceController, decoration: const InputDecoration(labelText: "Price")),
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: "Name"),
+              ),
+              TextField(
+                controller: descController,
+                decoration: const InputDecoration(labelText: "Description"),
+              ),
+              TextField(
+                controller: qtyController,
+                decoration: const InputDecoration(labelText: "Quantity"),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: priceController,
+                decoration: const InputDecoration(labelText: "Price"),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: imageController,
+                decoration: const InputDecoration(labelText: "Image URL"),
+              ),
+              TextField(
+                controller: costController,
+                decoration: const InputDecoration(labelText: "Cost Price"),
+                keyboardType: TextInputType.number,
+              ),
             ],
           ),
         ),
@@ -111,8 +145,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 "description": descController.text,
                 "quantity": int.tryParse(qtyController.text) ?? 0,
                 "price": double.tryParse(priceController.text) ?? 0,
-                "image_url": "",
-                "cost_price": 0,
+                "image_url": imageController.text,
+                "cost_price": double.tryParse(costController.text) ?? 0,
               };
 
               Navigator.pop(context);
@@ -130,19 +164,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  // ---------------- UI ----------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Inventory"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => showProductDialog(),
-          )
-        ],
+      appBar: AppBar(title: const Text("Inventory")),
+
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => showProductDialog(),
+        child: const Icon(Icons.add),
       ),
+
       body: RefreshIndicator(
         onRefresh: fetchProducts,
         child: loading
@@ -168,14 +199,31 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
                       return Card(
                         child: ListTile(
+                          leading: (p.imageUrl != null &&
+                                  p.imageUrl!.isNotEmpty)
+                              ? Image.network(
+                                  p.imageUrl!,
+                                  width: 50,
+                                  height: 50,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return const Icon(Icons.broken_image);
+                                  },
+                                )
+                              : const Icon(Icons.image),
+
                           title: Text(p.name),
-                          subtitle: Text("Qty: ${p.quantity} | \$${p.price}"),
+                          subtitle: Text(
+                            "Qty: ${p.quantity} | \$${p.price}",
+                          ),
+
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
                                 icon: const Icon(Icons.edit),
-                                onPressed: () => showProductDialog(product: p),
+                                onPressed: () =>
+                                    showProductDialog(product: p),
                               ),
                               IconButton(
                                 icon: const Icon(Icons.delete),
