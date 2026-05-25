@@ -77,14 +77,12 @@ router.put("/:id", async (req, res) => {
 
     const { name, email, role } = req.body;
 
-    // 🚨 cashier restrictions
     if (viewerRole === "cashier" && role !== "user") {
       return res.status(403).json({
         message: "Cashier can only manage user accounts",
       });
     }
 
-    // 🚨 manager restrictions
     if (viewerRole === "manager" && ["manager", "director"].includes(role)) {
       return res.status(403).json({
         message: "Manager cannot modify manager/director accounts",

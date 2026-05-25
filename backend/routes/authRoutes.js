@@ -5,13 +5,12 @@ const pool = require("../config/db");
 const bcrypt = require("bcrypt");
 const authMiddleware = require("../middleware/authMiddleware");
 
-// controllers
 const { login, registerUser } = require("../controllers/authController");
 
 // LOGIN
 router.post("/login", login);
 
-// REGISTER (public or controlled inside controller)
+// REGISTER
 router.post("/register", registerUser);
 
 const rolePermissions = {

@@ -63,13 +63,11 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    // 🔒 prevent invalid roles
     const allowedRoles = ["user", "cashier", "manager", "director"];
     if (!allowedRoles.includes(role)) {
       return res.status(400).json({ message: "Invalid role" });
     }
 
-    // 🔒 if request is authenticated, enforce hierarchy
     const creatorRole = req.user?.role;
 
     if (creatorRole && !canCreateRole(creatorRole, role)) {
