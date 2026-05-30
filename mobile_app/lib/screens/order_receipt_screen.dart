@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import '../widgets/product_image.dart';
 
 class OrderReceiptScreen extends StatelessWidget {
   final dynamic order;

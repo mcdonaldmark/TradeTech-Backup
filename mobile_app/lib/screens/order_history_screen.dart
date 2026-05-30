@@ -5,6 +5,7 @@ import 'dart:convert';
 import '../core/storage/token_storage.dart';
 import '../core/auth/auth_service.dart';
 import 'order_receipt_screen.dart';
+import '../widgets/product_image.dart';
 
 class OrderHistoryScreen extends StatefulWidget {
   const OrderHistoryScreen({super.key});

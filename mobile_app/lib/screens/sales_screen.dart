@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+
 import '../core/api/api_service.dart';
 import '../models/sale.dart';
 
@@ -11,6 +13,8 @@ class SalesScreen extends StatefulWidget {
 
 class _SalesScreenState extends State<SalesScreen> {
   List<Sale> sales = [];
+  List inventory = [];
+
   bool loading = true;
   String? error;
 
@@ -18,6 +22,16 @@ class _SalesScreenState extends State<SalesScreen> {
   void initState() {
     super.initState();
     fetchSales();
+    fetchInventory();
+  }
+
+  Future<void> fetchInventory() async {
+    try {
+      final res = await ApiService.get("inventory");
+      setState(() {
+        inventory = (res is List) ? res : [];
+      });
+    } catch (_) {}
   }
 
   Future<void> fetchSales() async {
@@ -29,7 +43,6 @@ class _SalesScreenState extends State<SalesScreen> {
     try {
       final res = await ApiService.get("sales");
 
-      // FIX: handle both List and {data: List}
       final List data = (res is List)
           ? res
           : (res is Map && res["data"] is List)
@@ -48,17 +61,6 @@ class _SalesScreenState extends State<SalesScreen> {
     }
   }
 
-  Future<void> createSale(Map data) async {
-    try {
-      await ApiService.post("sales", data);
-      fetchSales();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    }
-  }
-
   Future<void> deleteSale(int id) async {
     try {
       await ApiService.delete("sales/$id");
@@ -70,64 +72,50 @@ class _SalesScreenState extends State<SalesScreen> {
     }
   }
 
-  void showSaleDialog() {
-    final productController = TextEditingController();
-    final qtyController = TextEditingController();
+  String resolveImage(Sale sale) {
+    try {
+      final match = inventory.firstWhere(
+        (p) => p["name"] == sale.productName,
+        orElse: () => null,
+      );
 
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Create Sale"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: productController,
-              decoration:
-                  const InputDecoration(labelText: "Product Name or ID"),
-            ),
-            TextField(
-              controller: qtyController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: "Quantity"),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final productInput = productController.text.trim();
-              final qty = int.tryParse(qtyController.text) ?? 0;
+      final img = match?["image_url"];
 
-              Navigator.pop(context);
+      if (img == null || img.toString().isEmpty) return "";
 
-              createSale({
-                if (int.tryParse(productInput) != null)
-                  "product_id": int.parse(productInput)
-                else
-                  "product_name": productInput,
-                "quantity_sold": qty,
-              });
-            },
-            child: const Text("Sell"),
-          ),
-        ],
-      ),
-    );
+      final value = img.toString();
+
+      if (value.startsWith("/") ||
+          value.contains("cache") ||
+          value.contains(".jpg") ||
+          value.contains(".png")) {
+        return "";
+      }
+
+      return value;
+    } catch (_) {
+      return "";
+    }
+  }
+
+  Widget buildImage(String img) {
+    try {
+      return Image.memory(
+        base64Decode(img),
+        width: 50,
+        height: 50,
+        fit: BoxFit.cover,
+      );
+    } catch (_) {
+      return const Icon(Icons.image);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Sales")),
-      floatingActionButton: FloatingActionButton(
-        onPressed: showSaleDialog,
-        child: const Icon(Icons.add),
-      ),
+
       body: RefreshIndicator(
         onRefresh: fetchSales,
         child: loading
@@ -149,7 +137,6 @@ class _SalesScreenState extends State<SalesScreen> {
                 : Column(
                     children: [
                       Container(
-                        width: double.infinity,
                         margin: const EdgeInsets.all(12),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -158,30 +145,26 @@ class _SalesScreenState extends State<SalesScreen> {
                         ),
                         child: Builder(
                           builder: (_) {
-                            final totalRevenue =
-                                sales.fold<double>(0, (sum, s) => sum + s.totalRevenue);
+                            final totalRevenue = sales.fold<double>(
+                                0, (sum, s) => sum + s.totalRevenue);
 
-                            final totalProfit =
-                                sales.fold<double>(0, (sum, s) => sum + s.profit);
+                            final totalProfit = sales.fold<double>(
+                                0, (sum, s) => sum + s.profit);
 
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  "Sales Summary",
-                                  style: TextStyle(
-                                      fontSize: 16, fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 8),
+                                const Text("Sales Summary",
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold)),
                                 Text(
-                                    "Total Revenue: \$${totalRevenue.toStringAsFixed(2)}"),
+                                    "Revenue: \$${totalRevenue.toStringAsFixed(2)}"),
                                 Text(
-                                  "Total Profit: \$${totalProfit.toStringAsFixed(2)}",
+                                  "Profit: \$${totalProfit.toStringAsFixed(2)}",
                                   style: TextStyle(
                                     color: totalProfit >= 0
                                         ? Colors.green
                                         : Colors.red,
-                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ],
@@ -195,12 +178,18 @@ class _SalesScreenState extends State<SalesScreen> {
                           itemCount: sales.length,
                           itemBuilder: (context, index) {
                             final s = sales[index];
+                            final img = resolveImage(s);
 
                             return Card(
                               child: ListTile(
+                                leading: img.isNotEmpty
+                                    ? buildImage(img)
+                                    : const Icon(Icons.image),
+
                                 title: Text(s.productName),
                                 subtitle: Text(
-                                    "Qty: ${s.quantitySold} | Revenue: \$${s.totalRevenue.toStringAsFixed(2)}"),
+                                    "Qty: ${s.quantitySold} | \$${s.totalRevenue.toStringAsFixed(2)}"),
+
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [

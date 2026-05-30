@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'create_order_screen.dart';
 import 'order_history_screen.dart';
+import '../widgets/product_image.dart';
 
 class OrdersScreen extends StatelessWidget {
   const OrdersScreen({super.key});

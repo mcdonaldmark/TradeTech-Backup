@@ -4,6 +4,10 @@ class Product {
   final String description;
   final int quantity;
   final double price;
+
+  // ✅ NEW FIELD
+  final double? costPrice;
+
   final String? imageUrl;
 
   Product({
@@ -12,17 +16,42 @@ class Product {
     required this.description,
     required this.quantity,
     required this.price,
+    this.costPrice,
     this.imageUrl,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
-      id: json["id"],
-      name: json["name"],
-      description: json["description"] ?? "",
-      quantity: json["quantity"],
-      price: double.parse(json["price"].toString()),
-      imageUrl: json["image_url"],
+      id: json['id'],
+      name: json['name'] ?? '',
+      description: json['description'] ?? '',
+      quantity: json['quantity'] ?? 0,
+
+      price: json['price'] is num
+          ? (json['price'] as num).toDouble()
+          : double.tryParse(json['price'].toString()) ?? 0,
+
+      // ✅ FIXED SAFE PARSING (THIS FIXES YOUR ERROR)
+      costPrice: json['cost_price'] == null
+          ? null
+          : double.tryParse(json['cost_price'].toString()),
+
+      imageUrl: json['image_url'],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'description': description,
+      'quantity': quantity,
+      'price': price,
+
+      // keep backend consistent
+      'cost_price': costPrice,
+
+      'image_url': imageUrl,
+    };
   }
 }

@@ -1,4 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
 import '../core/api/api_service.dart';
 import '../core/auth/auth_service.dart';
 import '../models/product.dart';
@@ -60,6 +65,39 @@ class _InventoryScreenState extends State<InventoryScreen> {
     fetchProducts();
   }
 
+  // ================= FIXED IMAGE PICKER =================
+  Future<String?> pickImageBase64() async {
+    final picker = ImagePicker();
+
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+    );
+
+    if (image == null) return null;
+
+    final bytes = await image.readAsBytes();
+    return base64Encode(bytes);
+  }
+
+  // ================= SAFE IMAGE DISPLAY =================
+  Widget buildImage(String? img) {
+    if (img == null || img.isEmpty) {
+      return const Icon(Icons.image, size: 40);
+    }
+
+    try {
+      return Image.memory(
+        base64Decode(img),
+        width: 50,
+        height: 50,
+        fit: BoxFit.cover,
+      );
+    } catch (_) {
+      return const Icon(Icons.broken_image, size: 40);
+    }
+  }
+
   void showProductDialog({Product? product}) {
     final nameController =
         TextEditingController(text: product?.name ?? "");
@@ -69,87 +107,116 @@ class _InventoryScreenState extends State<InventoryScreen> {
         TextEditingController(text: product?.quantity.toString() ?? "");
     final priceController =
         TextEditingController(text: product?.price.toString() ?? "");
-    final imageController =
-        TextEditingController(text: product?.imageUrl ?? "");
-    final costController = TextEditingController();
+
+    // ✅ NEW: cost price controller
+    final costController =
+        TextEditingController(text: product?.costPrice?.toString() ?? "");
+
+    String? imageBase64 = product?.imageUrl;
 
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text(product == null ? "Add Product" : "Edit Product"),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: "Product Name",
-                ),
+      builder: (_) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return AlertDialog(
+            title: Text(product == null ? "Add Product" : "Edit Product"),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration:
+                        const InputDecoration(labelText: "Product Name"),
+                  ),
+                  TextField(
+                    controller: descController,
+                    decoration:
+                        const InputDecoration(labelText: "Description"),
+                  ),
+                  TextField(
+                    controller: qtyController,
+                    keyboardType: TextInputType.number,
+                    decoration:
+                        const InputDecoration(labelText: "Quantity"),
+                  ),
+                  TextField(
+                    controller: priceController,
+                    keyboardType: TextInputType.number,
+                    decoration:
+                        const InputDecoration(labelText: "Price"),
+                  ),
+
+                  // ✅ NEW COST PRICE FIELD
+                  TextField(
+                    controller: costController,
+                    keyboardType: TextInputType.number,
+                    decoration:
+                        const InputDecoration(labelText: "Cost Price"),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  imageBase64 != null && imageBase64!.isNotEmpty
+                      ? Image.memory(
+                          base64Decode(imageBase64!),
+                          height: 100,
+                          width: 100,
+                          fit: BoxFit.cover,
+                        )
+                      : const Icon(Icons.image, size: 80),
+
+                  const SizedBox(height: 10),
+
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      final img = await pickImageBase64();
+
+                      if (img != null && img.isNotEmpty) {
+                        setModalState(() {
+                          imageBase64 = img;
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.photo),
+                    label: const Text("Pick Image"),
+                  ),
+                ],
               ),
-              TextField(
-                controller: descController,
-                decoration: const InputDecoration(
-                  labelText: "Description",
-                ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Cancel"),
               ),
-              TextField(
-                controller: qtyController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: "Quantity",
-                ),
-              ),
-              TextField(
-                controller: priceController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: "Price",
-                ),
-              ),
-              TextField(
-                controller: imageController,
-                decoration: const InputDecoration(
-                  labelText: "Image URL",
-                ),
-              ),
-              TextField(
-                controller: costController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: "Cost Price",
-                ),
+              ElevatedButton(
+                onPressed: () {
+                  final data = {
+                    "name": nameController.text,
+                    "description": descController.text,
+                    "quantity": int.tryParse(qtyController.text) ?? 0,
+                    "price": double.tryParse(priceController.text) ?? 0,
+
+                    // ✅ NEW BACKEND FIELD
+                    "cost_price":
+                        double.tryParse(costController.text) ?? 0,
+
+                    "image_url": imageBase64 ?? "",
+                  };
+
+                  Navigator.pop(context);
+
+                  if (product == null) {
+                    createProduct(data);
+                  } else {
+                    updateProduct(product.id, data);
+                  }
+                },
+                child: const Text("Save"),
               ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final data = {
-                "name": nameController.text,
-                "description": descController.text,
-                "quantity": int.tryParse(qtyController.text) ?? 0,
-                "price": double.tryParse(priceController.text) ?? 0,
-                "image_url": imageController.text,
-                "cost_price": double.tryParse(costController.text) ?? 0,
-              };
-
-              Navigator.pop(context);
-
-              if (product == null) {
-                createProduct(data);
-              } else {
-                updateProduct(product.id, data);
-              }
-            },
-            child: const Text("Save"),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -157,9 +224,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Inventory"),
-      ),
+      appBar: AppBar(title: const Text("Inventory")),
 
       floatingActionButton: isCashier
           ? null
@@ -179,19 +244,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
                     return Card(
                       child: ListTile(
-                        leading: (p.imageUrl != null &&
-                                p.imageUrl!.isNotEmpty)
-                            ? Image.network(
-                                p.imageUrl!,
-                                width: 50,
-                                height: 50,
-                                fit: BoxFit.cover,
-                              )
-                            : const Icon(Icons.image),
+                        leading: buildImage(p.imageUrl),
 
                         title: Text(p.name),
+
                         subtitle: Text(
-                          "Qty: ${p.quantity} | \$${p.price}",
+                          "Qty: ${p.quantity} | \$${p.price}"
+                          "${p.costPrice != null ? " | Cost: \$${p.costPrice}" : ""}",
                         ),
 
                         trailing: isCashier

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+
 import '../core/api/api_service.dart';
+import '../widgets/product_image.dart';
 
 class ProfitLossScreen extends StatefulWidget {
   const ProfitLossScreen({super.key});
@@ -56,42 +59,38 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
     }
   }
 
-Future<void> fetchSales() async {
-  try {
-    final res = await ApiService.get("sales");
+  Future<void> fetchSales() async {
+    try {
+      final res = await ApiService.get("sales");
 
-    setState(() {
-      sales = res;
-    });
+      setState(() {
+        sales = res;
+      });
 
-    print(
-      "FIRST SALE: ${sales.isNotEmpty ? sales.first : 'NO SALES'}",
-    );
-  } catch (_) {}
-}
-
-bool inRange(DateTime date) {
-  if (selectedDateRange == null) {
-    return true;
+      print("FIRST SALE: ${sales.isNotEmpty ? sales.first : 'NO SALES'}");
+    } catch (_) {}
   }
 
-  final start = DateTime(
-    selectedDateRange!.start.year,
-    selectedDateRange!.start.month,
-    selectedDateRange!.start.day,
-  );
+  bool inRange(DateTime date) {
+    if (selectedDateRange == null) return true;
 
-  final end = DateTime(
-    selectedDateRange!.end.year,
-    selectedDateRange!.end.month,
-    selectedDateRange!.end.day,
-    23,
-    59,
-    59,
-  );
+    final start = DateTime(
+      selectedDateRange!.start.year,
+      selectedDateRange!.start.month,
+      selectedDateRange!.start.day,
+    );
 
-  return !date.isBefore(start) && !date.isAfter(end);
-}
+    final end = DateTime(
+      selectedDateRange!.end.year,
+      selectedDateRange!.end.month,
+      selectedDateRange!.end.day,
+      23,
+      59,
+      59,
+    );
+
+    return !date.isBefore(start) && !date.isAfter(end);
+  }
 
   List get filteredSales {
     return sales.where((s) {
@@ -113,33 +112,31 @@ bool inRange(DateTime date) {
     return total;
   }
 
-  // ✅ FIXED: stronger cost detection (minimal change, no removal)
-double get filteredCost {
-  double total = 0;
+  double get filteredCost {
+    double total = 0;
 
-  for (final s in filteredSales) {
-    // If API already provides total_cost, use it directly
-    if (s["total_cost"] != null) {
-      total += _toNum(s["total_cost"]);
-      continue;
+    for (final s in filteredSales) {
+      if (s["total_cost"] != null) {
+        total += _toNum(s["total_cost"]);
+        continue;
+      }
+
+      final qty = _toNum(s["quantity_sold"]);
+
+      final costValue = _toNum(
+        s["cost"] ??
+            s["unit_cost"] ??
+            s["product_cost"] ??
+            s["buy_price"] ??
+            s["purchase_price"] ??
+            s["cost_price"],
+      );
+
+      total += qty * costValue;
     }
 
-    final qty = _toNum(s["quantity_sold"]);
-
-    final costValue = _toNum(
-      s["cost"] ??
-      s["unit_cost"] ??
-      s["product_cost"] ??
-      s["buy_price"] ??
-      s["purchase_price"] ??
-      s["cost_price"],
-    );
-
-    total += qty * costValue;
+    return total;
   }
-
-  return total;
-}
 
   double get filteredProfit => filteredRevenue - filteredCost;
 
@@ -168,14 +165,23 @@ double get filteredCost {
     return list;
   }
 
-  String get bestProduct {
-    if (sortedProducts.isEmpty) return "";
-    return sortedProducts.first.key;
-  }
+  String get bestProduct =>
+      sortedProducts.isNotEmpty ? sortedProducts.first.key : "";
 
-  String get worstProduct {
-    if (sortedProducts.isEmpty) return "";
-    return sortedProducts.last.key;
+  String get worstProduct =>
+      sortedProducts.isNotEmpty ? sortedProducts.last.key : "";
+
+  // ✅ NEW: safely get image from sales (multiple fallback keys)
+  String getProductImage(String name) {
+    final match = filteredSales.firstWhere(
+      (s) => s["product_name"] == name,
+      orElse: () => {},
+    );
+
+    return match["image_url"] ??
+        match["product_image"] ??
+        match["image"] ??
+        "";
   }
 
   Widget buildCard(String title, double value, Color color) {
@@ -193,20 +199,20 @@ double get filteredCost {
     );
   }
 
-Future<void> pickDateRange() async {
-  final range = await showDateRangePicker(
-    context: context,
-    firstDate: DateTime(2020),
-    lastDate: DateTime(2100),
-    initialDateRange: selectedDateRange,
-  );
+  Future<void> pickDateRange() async {
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      initialDateRange: selectedDateRange,
+    );
 
-  if (range != null) {
-    setState(() {
-      selectedDateRange = range;
-    });
+    if (range != null) {
+      setState(() {
+        selectedDateRange = range;
+      });
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -239,40 +245,40 @@ Future<void> pickDateRange() async {
                     padding: const EdgeInsets.all(16),
                     children: [
                       Card(
-  child: ListTile(
-    leading: const Icon(Icons.date_range),
-    title: const Text("Date Range"),
-    subtitle: Text(
-      selectedDateRange == null
-          ? "All Dates"
-          : "${selectedDateRange!.start.month}/${selectedDateRange!.start.day}/${selectedDateRange!.start.year}"
-              " - "
-              "${selectedDateRange!.end.month}/${selectedDateRange!.end.day}/${selectedDateRange!.end.year}",
-    ),
-    trailing: ElevatedButton(
-      onPressed: pickDateRange,
-      child: const Text("Select"),
-    ),
-  ),
-),
+                        child: ListTile(
+                          leading: const Icon(Icons.date_range),
+                          title: const Text("Date Range"),
+                          subtitle: Text(
+                            selectedDateRange == null
+                                ? "All Dates"
+                                : "${selectedDateRange!.start.month}/${selectedDateRange!.start.day}/${selectedDateRange!.start.year}"
+                                    " - "
+                                    "${selectedDateRange!.end.month}/${selectedDateRange!.end.day}/${selectedDateRange!.end.year}",
+                          ),
+                          trailing: ElevatedButton(
+                            onPressed: pickDateRange,
+                            child: const Text("Select"),
+                          ),
+                        ),
+                      ),
 
-TextButton(
-  onPressed: () {
-    setState(() {
-      selectedDateRange = null;
-    });
-  },
-  child: const Text("Clear Filter"),
-),
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            selectedDateRange = null;
+                          });
+                        },
+                        child: const Text("Clear Filter"),
+                      ),
 
                       const SizedBox(height: 16),
 
                       buildCard("Revenue (Filtered)", filteredRevenue, Colors.blue),
                       buildCard(
-  selectedDateRange == null ? "Cost" : "Cost (Filtered)",
-  filteredCost,
-  Colors.red,
-),
+                        "Cost (Filtered)",
+                        filteredCost,
+                        Colors.red,
+                      ),
                       buildCard(
                         "Profit (Filtered)",
                         filteredProfit,
@@ -284,7 +290,19 @@ TextButton(
                       Card(
                         child: ListTile(
                           title: const Text("Best Selling Product"),
-                          subtitle: Text(bestProduct.isEmpty ? "" : bestProduct),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(bestProduct),
+                              if (getProductImage(bestProduct).isNotEmpty)
+                                Image.memory(
+                                  base64Decode(getProductImage(bestProduct)),
+                                  height: 60,
+                                  width: 60,
+                                  fit: BoxFit.cover,
+                                ),
+                            ],
+                          ),
                         ),
                       ),
 
@@ -293,7 +311,19 @@ TextButton(
                       Card(
                         child: ListTile(
                           title: const Text("Least Selling Product"),
-                          subtitle: Text(worstProduct.isEmpty ? "" : worstProduct),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(worstProduct),
+                              if (getProductImage(worstProduct).isNotEmpty)
+                                Image.memory(
+                                  base64Decode(getProductImage(worstProduct)),
+                                  height: 60,
+                                  width: 60,
+                                  fit: BoxFit.cover,
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     ],

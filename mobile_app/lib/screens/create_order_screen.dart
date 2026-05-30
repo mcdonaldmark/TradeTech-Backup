@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+
 import '../core/storage/token_storage.dart';
 import '../core/auth/auth_service.dart';
 import '../models/order_item.dart';
@@ -61,9 +62,10 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       );
 
       setState(() {
-        selectedUserName = current != null ? current['name'] : "Unknown User";
+        selectedUserName =
+            current != null ? current['name'] : "Unknown User";
       });
-    } catch (e) {
+    } catch (_) {
       setState(() {
         selectedUserName = "Unknown User";
       });
@@ -95,6 +97,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     });
   }
 
+  // ================= USER SEARCH (RESTORED) =================
   void searchUser(String query) {
     final role = AuthService.currentRole;
     if (role == "user") return;
@@ -115,6 +118,19 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     });
   }
 
+  void selectUser(dynamic user) {
+    final role = AuthService.currentRole;
+    if (role == "user") return;
+
+    setState(() {
+      selectedUserId = user['id'];
+      selectedUserName = user['name'];
+
+      userSearchController.text = "${user['name']} (#${user['id']})";
+      filteredUsers.clear();
+    });
+  }
+
   void searchProducts(String query) {
     setState(() {
       productQuery = query;
@@ -128,19 +144,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       final name = p['name'].toString().toLowerCase();
       return name.contains(productQuery.toLowerCase());
     }).toList();
-  }
-
-  void selectUser(dynamic user) {
-    final role = AuthService.currentRole;
-    if (role == "user") return;
-
-    setState(() {
-      selectedUserId = user['id'];
-      selectedUserName = user['name'];
-
-      userSearchController.text = "${user['name']} (#${user['id']})";
-      filteredUsers.clear();
-    });
   }
 
   void addToCart(product) {
@@ -160,6 +163,13 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   }
 
   double get total => cart.fold(0, (sum, item) => sum + item.subtotal);
+
+  // ================= SAFE IMAGE (YOUR WORKING VERSION) =================
+  String _imageOf(dynamic p) {
+    final img = p['image_url'];
+    if (img == null || img.toString().isEmpty) return "";
+    return img.toString();
+  }
 
   Future<void> submitOrder() async {
     final token = await TokenStorage.getToken();
@@ -203,8 +213,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final role = AuthService.currentRole;
-    final isUser = role == "user";
+    final isUser = AuthService.currentRole == "user";
 
     return Scaffold(
       appBar: AppBar(title: const Text("Create Order")),
@@ -215,22 +224,11 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
             bottom: MediaQuery.of(context).viewInsets.bottom + 20,
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
 
-              // USER SECTION
-              if (isUser)
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.person),
-                      title: Text(selectedUserName ?? "Loading..."),
-                      subtitle: Text("User ID: ${selectedUserId ?? ''}"),
-                    ),
-                  ),
-                ),
+              const SizedBox(height: 10),
 
+              // ================= USER SEARCH (RESTORED) =================
               if (!isUser)
                 Padding(
                   padding: const EdgeInsets.all(12),
@@ -266,9 +264,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                   ),
                 ),
 
-              const Divider(),
-
-              // PRODUCT SEARCH
+              // ================= PRODUCT SEARCH =================
               Padding(
                 padding: const EdgeInsets.all(12),
                 child: TextField(
@@ -282,7 +278,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                 ),
               ),
 
-              // PRODUCT LIST (SAFE)
+              // ================= PRODUCTS + IMAGE =================
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -290,9 +286,21 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                 itemBuilder: (_, i) {
                   final p = filteredProducts[i];
 
+                  final img = _imageOf(p);
+
                   return ListTile(
+                    leading: img.isNotEmpty
+                        ? Image.memory(
+                            base64Decode(img),
+                            width: 45,
+                            height: 45,
+                            fit: BoxFit.cover,
+                          )
+                        : const Icon(Icons.image),
+
                     title: Text(p['name']),
                     subtitle: Text("\$${p['price']}"),
+
                     trailing: IconButton(
                       icon: const Icon(Icons.add),
                       onPressed: () => addToCart(p),
@@ -303,7 +311,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
               const Divider(),
 
-              // TOTAL + BUTTON
+              // ================= TOTAL =================
               Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
