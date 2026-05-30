@@ -28,7 +28,13 @@ class _SalesScreenState extends State<SalesScreen> {
 
     try {
       final res = await ApiService.get("sales");
-      final List data = res;
+
+      // FIX: handle both List and {data: List}
+      final List data = (res is List)
+          ? res
+          : (res is Map && res["data"] is List)
+              ? res["data"]
+              : [];
 
       setState(() {
         sales = data.map((e) => Sale.fromJson(e)).toList();
@@ -142,7 +148,6 @@ class _SalesScreenState extends State<SalesScreen> {
                   )
                 : Column(
                     children: [
-                      // SUMMARY
                       Container(
                         width: double.infinity,
                         margin: const EdgeInsets.all(12),
@@ -207,9 +212,9 @@ class _SalesScreenState extends State<SalesScreen> {
                                             : Colors.red,
                                       ),
                                     ),
-
                                     IconButton(
-                                      icon: const Icon(Icons.delete, color: Colors.red),
+                                      icon: const Icon(Icons.delete,
+                                          color: Colors.red),
                                       onPressed: () => deleteSale(s.id),
                                     ),
                                   ],

@@ -23,6 +23,11 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   String? selectedUserName;
 
   final TextEditingController userSearchController = TextEditingController();
+
+  // ✅ NEW: product search controller + query
+  final TextEditingController productSearchController = TextEditingController();
+  String productQuery = "";
+
   List filteredUsers = [];
 
   @override
@@ -34,7 +39,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
     if (role == "user") {
       selectedUserId = AuthService.currentUserId;
-      _loadCurrentUserName(); // 🔥 NEW
+      _loadCurrentUserName();
     }
   }
 
@@ -59,7 +64,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
       if (current != null) {
         setState(() {
-          selectedUserName = current['name']; // ✅ REAL NAME
+          selectedUserName = current['name'];
         });
       } else {
         setState(() {
@@ -121,6 +126,21 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     });
   }
 
+  void searchProducts(String query) {
+    setState(() {
+      productQuery = query;
+    });
+  }
+
+  List get filteredProducts {
+    if (productQuery.trim().isEmpty) return products;
+
+    return products.where((p) {
+      final name = p['name'].toString().toLowerCase();
+      return name.contains(productQuery.toLowerCase());
+    }).toList();
+  }
+
   void selectUser(dynamic user) {
     final role = AuthService.currentRole;
 
@@ -136,8 +156,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   }
 
   void addToCart(product) {
-    final index =
-        cart.indexWhere((e) => e.productId == product['id']);
+    final index = cart.indexWhere((e) => e.productId == product['id']);
 
     if (index >= 0) {
       setState(() => cart[index].quantity++);
@@ -211,6 +230,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       body: Column(
         children: [
 
+          // USER SECTION
           if (isUser)
             Padding(
               padding: const EdgeInsets.all(12),
@@ -219,9 +239,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                 child: ListTile(
                   leading: const Icon(Icons.person),
                   title: Text(selectedUserName ?? "Loading..."),
-                  subtitle: Text(
-                    "User ID: ${selectedUserId ?? ''}",
-                  ),
+                  subtitle: Text("User ID: ${selectedUserId ?? ''}"),
                 ),
               ),
             ),
@@ -265,11 +283,28 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
           const Divider(),
 
+          // ✅ NEW PRODUCT SEARCH BAR (ALL ROLES)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: TextField(
+              controller: productSearchController,
+              decoration: const InputDecoration(
+                labelText: "Search Products",
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+              onChanged: searchProducts,
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // PRODUCT LIST (FILTERED)
           Expanded(
             child: ListView.builder(
-              itemCount: products.length,
+              itemCount: filteredProducts.length,
               itemBuilder: (_, i) {
-                final p = products[i];
+                final p = filteredProducts[i];
 
                 return ListTile(
                   title: Text(p['name']),
@@ -285,6 +320,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
           const Divider(),
 
+          // TOTAL + SUBMIT
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(

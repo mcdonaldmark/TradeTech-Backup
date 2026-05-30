@@ -52,6 +52,8 @@ dependencies:
   # Used to print, preview, or export PDF receipts
   printing: ^5.13.0
 
+  fl_chart: ^0.68.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -3,6 +3,7 @@ import '../core/auth/auth_service.dart';
 import 'dashboard_screen.dart';
 import 'inventory_screen.dart';
 import 'user_home_screen.dart';
+import 'login_screen.dart';
 
 class RoleRouter extends StatelessWidget {
   const RoleRouter({super.key});
@@ -13,10 +14,9 @@ class RoleRouter extends StatelessWidget {
 
     print("ROLE ROUTER: $role");
 
+    // FIX: prevent infinite loading screen
     if (role == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const LoginScreen();
     }
 
     if (role == "user") {

@@ -16,10 +16,19 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
   double cost = 0;
   double profit = 0;
 
+  List sales = [];
+  DateTimeRange? selectedDateRange;
+
   @override
   void initState() {
     super.initState();
     fetchSummary();
+    fetchSales();
+  }
+
+  double _toNum(dynamic v) {
+    if (v == null) return 0;
+    return double.tryParse(v.toString()) ?? 0;
   }
 
   Future<void> fetchSummary() async {
@@ -31,10 +40,12 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
     try {
       final res = await ApiService.get("sales/profit-loss");
 
+      final data = (res is Map && res["data"] is Map) ? res["data"] : res;
+
       setState(() {
-        revenue = double.tryParse(res["revenue"].toString()) ?? 0;
-        cost = double.tryParse(res["cost"].toString()) ?? 0;
-        profit = double.tryParse(res["profit"].toString()) ?? 0;
+        revenue = _toNum(data["revenue"]);
+        cost = _toNum(data["cost"]);
+        profit = _toNum(data["profit"]);
         loading = false;
       });
     } catch (e) {
@@ -43,6 +54,128 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
         loading = false;
       });
     }
+  }
+
+Future<void> fetchSales() async {
+  try {
+    final res = await ApiService.get("sales");
+
+    setState(() {
+      sales = res;
+    });
+
+    print(
+      "FIRST SALE: ${sales.isNotEmpty ? sales.first : 'NO SALES'}",
+    );
+  } catch (_) {}
+}
+
+bool inRange(DateTime date) {
+  if (selectedDateRange == null) {
+    return true;
+  }
+
+  final start = DateTime(
+    selectedDateRange!.start.year,
+    selectedDateRange!.start.month,
+    selectedDateRange!.start.day,
+  );
+
+  final end = DateTime(
+    selectedDateRange!.end.year,
+    selectedDateRange!.end.month,
+    selectedDateRange!.end.day,
+    23,
+    59,
+    59,
+  );
+
+  return !date.isBefore(start) && !date.isAfter(end);
+}
+
+  List get filteredSales {
+    return sales.where((s) {
+      final date =
+          DateTime.tryParse(s["created_at"] ?? "") ?? DateTime.now();
+      return inRange(date);
+    }).toList();
+  }
+
+  double get filteredRevenue {
+    double total = 0;
+
+    for (final s in filteredSales) {
+      final qty = _toNum(s["quantity_sold"]);
+      final price = _toNum(s["price"] ?? s["unit_price"]);
+      total += qty * price;
+    }
+
+    return total;
+  }
+
+  // ✅ FIXED: stronger cost detection (minimal change, no removal)
+double get filteredCost {
+  double total = 0;
+
+  for (final s in filteredSales) {
+    // If API already provides total_cost, use it directly
+    if (s["total_cost"] != null) {
+      total += _toNum(s["total_cost"]);
+      continue;
+    }
+
+    final qty = _toNum(s["quantity_sold"]);
+
+    final costValue = _toNum(
+      s["cost"] ??
+      s["unit_cost"] ??
+      s["product_cost"] ??
+      s["buy_price"] ??
+      s["purchase_price"] ??
+      s["cost_price"],
+    );
+
+    total += qty * costValue;
+  }
+
+  return total;
+}
+
+  double get filteredProfit => filteredRevenue - filteredCost;
+
+  Map<String, int> get productTotals {
+    final map = <String, int>{};
+
+    for (final s in filteredSales) {
+      final name = s["product_name"];
+
+      if (name == null ||
+          name.toString().trim().isEmpty ||
+          name.toString().toLowerCase() == "deleted product") {
+        continue;
+      }
+
+      final qty = _toNum(s["quantity_sold"]).toInt();
+      map[name] = (map[name] ?? 0) + qty;
+    }
+
+    return map;
+  }
+
+  List<MapEntry<String, int>> get sortedProducts {
+    final list = productTotals.entries.toList();
+    list.sort((a, b) => b.value.compareTo(a.value));
+    return list;
+  }
+
+  String get bestProduct {
+    if (sortedProducts.isEmpty) return "";
+    return sortedProducts.first.key;
+  }
+
+  String get worstProduct {
+    if (sortedProducts.isEmpty) return "";
+    return sortedProducts.last.key;
   }
 
   Widget buildCard(String title, double value, Color color) {
@@ -60,6 +193,21 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
     );
   }
 
+Future<void> pickDateRange() async {
+  final range = await showDateRangePicker(
+    context: context,
+    firstDate: DateTime(2020),
+    lastDate: DateTime(2100),
+    initialDateRange: selectedDateRange,
+  );
+
+  if (range != null) {
+    setState(() {
+      selectedDateRange = range;
+    });
+  }
+}
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -67,7 +215,10 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
         title: const Text("Profit & Loss"),
       ),
       body: RefreshIndicator(
-        onRefresh: fetchSummary,
+        onRefresh: () async {
+          await fetchSummary();
+          await fetchSales();
+        },
         child: loading
             ? const Center(child: CircularProgressIndicator())
             : error != null
@@ -87,12 +238,63 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
                 : ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      buildCard("Total Revenue", revenue, Colors.blue),
-                      buildCard("Total Cost", cost, Colors.red),
+                      Card(
+  child: ListTile(
+    leading: const Icon(Icons.date_range),
+    title: const Text("Date Range"),
+    subtitle: Text(
+      selectedDateRange == null
+          ? "All Dates"
+          : "${selectedDateRange!.start.month}/${selectedDateRange!.start.day}/${selectedDateRange!.start.year}"
+              " - "
+              "${selectedDateRange!.end.month}/${selectedDateRange!.end.day}/${selectedDateRange!.end.year}",
+    ),
+    trailing: ElevatedButton(
+      onPressed: pickDateRange,
+      child: const Text("Select"),
+    ),
+  ),
+),
+
+TextButton(
+  onPressed: () {
+    setState(() {
+      selectedDateRange = null;
+    });
+  },
+  child: const Text("Clear Filter"),
+),
+
+                      const SizedBox(height: 16),
+
+                      buildCard("Revenue (Filtered)", filteredRevenue, Colors.blue),
                       buildCard(
-                        "Total Profit",
-                        profit,
-                        profit >= 0 ? Colors.green : Colors.red,
+  selectedDateRange == null ? "Cost" : "Cost (Filtered)",
+  filteredCost,
+  Colors.red,
+),
+                      buildCard(
+                        "Profit (Filtered)",
+                        filteredProfit,
+                        filteredProfit >= 0 ? Colors.green : Colors.red,
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      Card(
+                        child: ListTile(
+                          title: const Text("Best Selling Product"),
+                          subtitle: Text(bestProduct.isEmpty ? "" : bestProduct),
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      Card(
+                        child: ListTile(
+                          title: const Text("Least Selling Product"),
+                          subtitle: Text(worstProduct.isEmpty ? "" : worstProduct),
+                        ),
                       ),
                     ],
                   ),

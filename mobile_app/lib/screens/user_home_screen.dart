@@ -20,9 +20,9 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   void initState() {
     super.initState();
 
-    pages = const [
-      _UserDashboardTab(),
-      OrderHistoryScreen(),
+    pages = [
+      const _UserDashboardTab(),
+      const OrderHistoryScreen(),
     ];
   }
 

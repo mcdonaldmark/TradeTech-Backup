@@ -15,12 +15,20 @@ class _UsersScreenState extends State<UsersScreen> {
   bool loading = true;
   String? error;
 
+  final TextEditingController searchController = TextEditingController();
+
   String get currentRole => AuthService.currentRole ?? "unknown";
 
   @override
   void initState() {
     super.initState();
     fetchUsers();
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
   }
 
   bool canViewRole(String role) {
@@ -79,6 +87,22 @@ class _UsersScreenState extends State<UsersScreen> {
         loading = false;
       });
     }
+  }
+
+  // ---------------- SEARCH FILTER ----------------
+
+  List<User> get filteredUsers {
+    final base = users.where((u) => canViewRole(u.role)).toList();
+    final query = searchController.text.trim().toLowerCase();
+
+    if (query.isEmpty) return base;
+
+    return base.where((u) {
+      final idMatch = u.id.toString().contains(query);
+      final nameMatch = u.name.toLowerCase().contains(query);
+
+      return idMatch || nameMatch;
+    }).toList();
   }
 
   Future<void> deleteUser(User user) async {
@@ -143,7 +167,6 @@ class _UsersScreenState extends State<UsersScreen> {
           children: [
             TextField(controller: name),
             TextField(controller: email),
-
             DropdownButtonFormField(
               value: role,
               items: allowedRoles
@@ -201,10 +224,16 @@ class _UsersScreenState extends State<UsersScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: name, decoration: const InputDecoration(labelText: "Name")),
-            TextField(controller: email, decoration: const InputDecoration(labelText: "Email")),
-            TextField(controller: password, obscureText: true, decoration: const InputDecoration(labelText: "Password")),
-
+            TextField(
+                controller: name,
+                decoration: const InputDecoration(labelText: "Name")),
+            TextField(
+                controller: email,
+                decoration: const InputDecoration(labelText: "Email")),
+            TextField(
+                controller: password,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: "Password")),
             DropdownButtonFormField(
               value: role,
               items: allowedRoles
@@ -248,7 +277,7 @@ class _UsersScreenState extends State<UsersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final visibleUsers = users.where((u) => canViewRole(u.role)).toList();
+    final visibleUsers = filteredUsers;
 
     return Scaffold(
       appBar: AppBar(title: const Text("Users")),
@@ -264,39 +293,56 @@ class _UsersScreenState extends State<UsersScreen> {
               ? Center(child: Text(error!))
               : RefreshIndicator(
                   onRefresh: fetchUsers,
-                  child: ListView.builder(
-                    itemCount: visibleUsers.length,
-                    itemBuilder: (context, index) {
-                      final u = visibleUsers[index];
-
-                      final canEdit = canEditRole(u.role);
-
-                      return Card(
-                        child: ListTile(
-                          title: Text(u.name),
-                          subtitle: Text(u.email),
-
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(u.role),
-
-                              if (canEdit)
-                                IconButton(
-                                  icon: const Icon(Icons.edit),
-                                  onPressed: () => showEditDialog(u),
-                                ),
-
-                              if (canEdit)
-                                IconButton(
-                                  icon: const Icon(Icons.delete),
-                                  onPressed: () => deleteUser(u),
-                                ),
-                            ],
+                  child: Column(
+                    children: [
+                      // ---------------- SEARCH BAR ----------------
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: TextField(
+                          controller: searchController,
+                          onChanged: (_) => setState(() {}),
+                          decoration: const InputDecoration(
+                            labelText: "Search by ID or Name",
+                            prefixIcon: Icon(Icons.search),
+                            border: OutlineInputBorder(),
                           ),
                         ),
-                      );
-                    },
+                      ),
+
+                      // ---------------- LIST ----------------
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: visibleUsers.length,
+                          itemBuilder: (context, index) {
+                            final u = visibleUsers[index];
+                            final canEdit = canEditRole(u.role);
+
+                            return Card(
+                              child: ListTile(
+                                title: Text(u.name),
+                                subtitle: Text(u.email),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(u.role),
+                                    if (canEdit)
+                                      IconButton(
+                                        icon: const Icon(Icons.edit),
+                                        onPressed: () => showEditDialog(u),
+                                      ),
+                                    if (canEdit)
+                                      IconButton(
+                                        icon: const Icon(Icons.delete),
+                                        onPressed: () => deleteUser(u),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 ),
     );
