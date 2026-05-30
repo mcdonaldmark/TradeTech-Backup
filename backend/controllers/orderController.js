@@ -1,5 +1,8 @@
 const pool = require("../config/db");
 
+/*
+ * CREATE ORDER
+ */
 exports.createOrder = async (req, res) => {
   try {
     const { items } = req.body;
@@ -38,13 +41,17 @@ exports.createOrder = async (req, res) => {
       const subtotal = product.price * item.quantity;
       total += subtotal;
 
+      // -------------------------
+      // ORDER ITEMS (unchanged)
+      // -------------------------
       await pool.query(
-        `INSERT INTO order_items 
-        (order_id, product_id, quantity, price, subtotal)
-        VALUES ($1,$2,$3,$4,$5)`,
+        `INSERT INTO order_items
+        (order_id, product_id, product_name, quantity, price, subtotal)
+        VALUES ($1,$2,$3,$4,$5,$6)`,
         [
           order.id,
           product.id,
+          product.name,
           item.quantity,
           product.price,
           subtotal,
@@ -56,9 +63,17 @@ exports.createOrder = async (req, res) => {
         [item.quantity, product.id]
       );
 
+      // -------------------------
+      // 🔥 FIXED SALES INSERT (THIS WAS BROKEN)
+      // -------------------------
+      const safeProductName = String(
+        product?.name || "Deleted Product"
+      );
+
       await pool.query(
         `INSERT INTO sales (
           product_id,
+          product_name,
           quantity_sold,
           unit_price,
           total_revenue,
@@ -67,9 +82,10 @@ exports.createOrder = async (req, res) => {
           profit,
           sold_by
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
         [
           product.id,
+          safeProductName,
           item.quantity,
           product.price,
           subtotal,
@@ -98,6 +114,10 @@ exports.createOrder = async (req, res) => {
   }
 };
 
+
+/*
+ * GET MY ORDERS
+ */
 exports.getMyOrders = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -114,7 +134,7 @@ exports.getMyOrders = async (req, res) => {
         o.total,
         o.status,
         o.created_at,
-        u.name AS user_name
+        COALESCE(u.name, 'Unknown User') AS user_name
       FROM orders o
       LEFT JOIN users u ON o.user_id = u.id
       WHERE o.user_id = $1
@@ -130,6 +150,10 @@ exports.getMyOrders = async (req, res) => {
   }
 };
 
+
+/*
+ * GET ALL ORDERS
+ */
 exports.getOrders = async (req, res) => {
   try {
     const role = req.user.role;
@@ -162,7 +186,7 @@ exports.getOrders = async (req, res) => {
         `
         SELECT 
           o.*,
-          u.name AS user_name
+          COALESCE(u.name, 'Unknown User') AS user_name
         FROM orders o
         LEFT JOIN users u ON o.user_id = u.id
         WHERE o.user_id = $1
@@ -203,7 +227,7 @@ exports.getOrders = async (req, res) => {
         `
         SELECT 
           o.*,
-          u.name AS user_name
+          COALESCE(u.name, 'Unknown User') AS user_name
         FROM orders o
         LEFT JOIN users u ON o.user_id = u.id
         WHERE o.user_id = $1
@@ -218,7 +242,7 @@ exports.getOrders = async (req, res) => {
         `
         SELECT 
           o.*,
-          u.name AS user_name
+          COALESCE(u.name, 'Unknown User') AS user_name
         FROM orders o
         LEFT JOIN users u ON o.user_id = u.id
         ORDER BY o.created_at DESC
@@ -234,6 +258,10 @@ exports.getOrders = async (req, res) => {
   }
 };
 
+
+/*
+ * GET ORDER BY ID
+ */
 exports.getOrderById = async (req, res) => {
   try {
     const orderRes = await pool.query(
@@ -244,8 +272,8 @@ exports.getOrderById = async (req, res) => {
         o.total,
         o.status,
         o.created_at,
-        u.name AS user_name,
-        cu.name AS created_by_name
+        COALESCE(u.name, 'Unknown User') AS user_name,
+        COALESCE(cu.name, 'Unknown User') AS created_by_name
       FROM orders o
       LEFT JOIN users u ON o.user_id = u.id
       LEFT JOIN users cu ON o.created_by = cu.id
@@ -266,14 +294,13 @@ exports.getOrderById = async (req, res) => {
 
     const itemsRes = await pool.query(
       `
-      SELECT 
+      SELECT
         oi.product_id,
-        COALESCE(i.name, 'Deleted Product') AS name,
+        oi.product_name AS name,
         oi.quantity,
         oi.price,
         oi.subtotal
       FROM order_items oi
-      LEFT JOIN inventory i ON oi.product_id = i.id
       WHERE oi.order_id=$1
       ORDER BY oi.id ASC
       `,

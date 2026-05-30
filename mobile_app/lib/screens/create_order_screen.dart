@@ -23,11 +23,9 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   String? selectedUserName;
 
   final TextEditingController userSearchController = TextEditingController();
-
-  // ✅ NEW: product search controller + query
   final TextEditingController productSearchController = TextEditingController();
-  String productQuery = "";
 
+  String productQuery = "";
   List filteredUsers = [];
 
   @override
@@ -62,15 +60,9 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         orElse: () => null,
       );
 
-      if (current != null) {
-        setState(() {
-          selectedUserName = current['name'];
-        });
-      } else {
-        setState(() {
-          selectedUserName = "Unknown User";
-        });
-      }
+      setState(() {
+        selectedUserName = current != null ? current['name'] : "Unknown User";
+      });
     } catch (e) {
       setState(() {
         selectedUserName = "Unknown User";
@@ -105,7 +97,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
   void searchUser(String query) {
     final role = AuthService.currentRole;
-
     if (role == "user") return;
 
     if (query.trim().isEmpty) {
@@ -113,16 +104,14 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       return;
     }
 
-    final results = users.where((u) {
-      final idMatch = u['id'].toString().contains(query.trim());
-      final nameMatch =
-          u['name'].toString().toLowerCase().contains(query.toLowerCase());
-
-      return idMatch || nameMatch;
-    }).toList();
-
     setState(() {
-      filteredUsers = results;
+      filteredUsers = users.where((u) {
+        final idMatch = u['id'].toString().contains(query.trim());
+        final nameMatch =
+            u['name'].toString().toLowerCase().contains(query.toLowerCase());
+
+        return idMatch || nameMatch;
+      }).toList();
     });
   }
 
@@ -143,7 +132,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
   void selectUser(dynamic user) {
     final role = AuthService.currentRole;
-
     if (role == "user") return;
 
     setState(() {
@@ -158,25 +146,23 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   void addToCart(product) {
     final index = cart.indexWhere((e) => e.productId == product['id']);
 
-    if (index >= 0) {
-      setState(() => cart[index].quantity++);
-    } else {
-      setState(() {
+    setState(() {
+      if (index >= 0) {
+        cart[index].quantity++;
+      } else {
         cart.add(OrderItem(
           productId: product['id'],
           name: product['name'],
           price: double.parse(product['price'].toString()),
         ));
-      });
-    }
+      }
+    });
   }
 
-  double get total =>
-      cart.fold(0, (sum, item) => sum + item.subtotal);
+  double get total => cart.fold(0, (sum, item) => sum + item.subtotal);
 
   Future<void> submitOrder() async {
     final token = await TokenStorage.getToken();
-
     final userId = selectedUserId ?? AuthService.currentUserId;
 
     final body = {
@@ -201,13 +187,8 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     if (res.statusCode == 201) {
       setState(() {
         cart.clear();
-
-        if (AuthService.currentRole != "user") {
-          selectedUserId = null;
-          selectedUserName = null;
-          userSearchController.clear();
-          filteredUsers.clear();
-        }
+        filteredUsers.clear();
+        userSearchController.clear();
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -227,123 +208,127 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text("Create Order")),
-      body: Column(
-        children: [
 
-          // USER SECTION
-          if (isUser)
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Card(
-                color: Colors.blue.shade50,
-                child: ListTile(
-                  leading: const Icon(Icons.person),
-                  title: Text(selectedUserName ?? "Loading..."),
-                  subtitle: Text("User ID: ${selectedUserId ?? ''}"),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+
+              // USER SECTION
+              if (isUser)
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.person),
+                      title: Text(selectedUserName ?? "Loading..."),
+                      subtitle: Text("User ID: ${selectedUserId ?? ''}"),
+                    ),
+                  ),
+                ),
+
+              if (!isUser)
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: userSearchController,
+                        decoration: const InputDecoration(
+                          labelText: "Search User",
+                          prefixIcon: Icon(Icons.search),
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: searchUser,
+                      ),
+
+                      if (filteredUsers.isNotEmpty)
+                        SizedBox(
+                          height: 200,
+                          child: ListView.builder(
+                            itemCount: filteredUsers.length,
+                            itemBuilder: (_, i) {
+                              final user = filteredUsers[i];
+
+                              return ListTile(
+                                title: Text(user['name']),
+                                subtitle: Text("ID: ${user['id']}"),
+                                onTap: () => selectUser(user),
+                              );
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+
+              const Divider(),
+
+              // PRODUCT SEARCH
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: TextField(
+                  controller: productSearchController,
+                  decoration: const InputDecoration(
+                    labelText: "Search Products",
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: searchProducts,
                 ),
               ),
-            ),
 
-          if (!isUser)
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                children: [
-                  TextField(
-                    controller: userSearchController,
-                    decoration: const InputDecoration(
-                      labelText: "Search User (ID or Name)",
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
+              // PRODUCT LIST (SAFE)
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: filteredProducts.length,
+                itemBuilder: (_, i) {
+                  final p = filteredProducts[i];
+
+                  return ListTile(
+                    title: Text(p['name']),
+                    subtitle: Text("\$${p['price']}"),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.add),
+                      onPressed: () => addToCart(p),
                     ),
-                    onChanged: searchUser,
-                  ),
+                  );
+                },
+              ),
 
-                  if (filteredUsers.isNotEmpty)
-                    Container(
-                      margin: const EdgeInsets.only(top: 5),
-                      constraints: const BoxConstraints(maxHeight: 200),
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: filteredUsers.length,
-                        itemBuilder: (_, i) {
-                          final user = filteredUsers[i];
+              const Divider(),
 
-                          return ListTile(
-                            title: Text(user['name']),
-                            subtitle: Text("ID: ${user['id']}"),
-                            onTap: () => selectUser(user),
-                          );
-                        },
+              // TOTAL + BUTTON
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  children: [
+                    Text(
+                      "Total: \$${total.toStringAsFixed(2)}",
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                ],
-              ),
-            ),
-
-          const Divider(),
-
-          // ✅ NEW PRODUCT SEARCH BAR (ALL ROLES)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: TextField(
-              controller: productSearchController,
-              decoration: const InputDecoration(
-                labelText: "Search Products",
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-              ),
-              onChanged: searchProducts,
-            ),
-          ),
-
-          const SizedBox(height: 10),
-
-          // PRODUCT LIST (FILTERED)
-          Expanded(
-            child: ListView.builder(
-              itemCount: filteredProducts.length,
-              itemBuilder: (_, i) {
-                final p = filteredProducts[i];
-
-                return ListTile(
-                  title: Text(p['name']),
-                  subtitle: Text("\$${p['price']}"),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.add),
-                    onPressed: () => addToCart(p),
-                  ),
-                );
-              },
-            ),
-          ),
-
-          const Divider(),
-
-          // TOTAL + SUBMIT
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: [
-                Text(
-                  "Total: \$${total.toStringAsFixed(2)}",
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: cart.isEmpty ? null : submitOrder,
+                        child: const Text("Submit Order"),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: cart.isEmpty ? null : submitOrder,
-                    child: const Text("Submit Order"),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

@@ -17,12 +17,12 @@ class Sale {
 
   factory Sale.fromJson(Map<String, dynamic> json) {
     return Sale(
-      id: json["id"],
-      productName: json["product_name"],
-      quantitySold: json["quantity_sold"],
-      totalRevenue: double.parse(json["total_revenue"].toString()),
-      profit: double.parse(json["profit"].toString()),
-      createdAt: json["created_at"],
+      id: json["id"] ?? 0,
+      productName: json["product_name"] ?? "Unknown Product",
+      quantitySold: json["quantity_sold"] ?? 0,
+      totalRevenue: double.tryParse(json["total_revenue"]?.toString() ?? "0") ?? 0,
+      profit: double.tryParse(json["profit"]?.toString() ?? "0") ?? 0,
+      createdAt: json["created_at"] ?? "",
     );
   }
 }

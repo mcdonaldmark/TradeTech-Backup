@@ -32,19 +32,20 @@ const setupDatabase = async () => {
 
 
         await pool.query(`
-            CREATE TABLE IF NOT EXISTS sales (
-                id SERIAL PRIMARY KEY,
-                product_id INTEGER REFERENCES inventory(id) ON DELETE SET NULL,
-                quantity_sold INTEGER NOT NULL CHECK (quantity_sold > 0),
-                unit_price NUMERIC(10,2) NOT NULL,
-                total_revenue NUMERIC(10,2) NOT NULL,
-                cost_price NUMERIC(10,2) NOT NULL,
-                total_cost NUMERIC(10,2) NOT NULL,
-                profit NUMERIC(10,2) NOT NULL,
-                sold_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
+    CREATE TABLE IF NOT EXISTS sales (
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER REFERENCES inventory(id) ON DELETE SET NULL,
+        product_name VARCHAR(255) NOT NULL,
+        quantity_sold INTEGER NOT NULL CHECK (quantity_sold > 0),
+        unit_price NUMERIC(10,2) NOT NULL,
+        total_revenue NUMERIC(10,2) NOT NULL,
+        cost_price NUMERIC(10,2) NOT NULL,
+        total_cost NUMERIC(10,2) NOT NULL,
+        profit NUMERIC(10,2) NOT NULL,
+        sold_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+`);
 
         await pool.query(`
     CREATE TABLE IF NOT EXISTS orders (
@@ -62,6 +63,7 @@ await pool.query(`
         id SERIAL PRIMARY KEY,
         order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
         product_id INTEGER REFERENCES inventory(id) ON DELETE SET NULL,
+        product_name VARCHAR(255),
         quantity INTEGER NOT NULL,
         price NUMERIC(10,2) NOT NULL,
         subtotal NUMERIC(10,2) NOT NULL
