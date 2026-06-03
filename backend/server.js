@@ -11,7 +11,7 @@ const orderRoutes = require("./routes/orderRoutes");
 
 const app = express();
 
-console.log("SERVER VERSION: 2026-API-SEED-TEST");
+console.log("SERVER VERSION: 2026-API-PROD-CLEAN");
 
 const getLocalIP = () => {
   const nets = os.networkInterfaces();
@@ -28,6 +28,7 @@ const getLocalIP = () => {
 
 const LOCAL_IP = getLocalIP();
 
+// CORS
 app.use(
   cors({
     origin: "*",
@@ -39,12 +40,13 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Request logger
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
   next();
 });
 
-// Root route
+// Root health check
 app.get("/", (req, res) => {
   res.json({
     message: "API is running",
@@ -52,48 +54,14 @@ app.get("/", (req, res) => {
   });
 });
 
-// Routes
+// API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/sales", salesRoutes);
 app.use("/api/orders", orderRoutes);
 
-// =========================
-// ✅ FIXED: SEED ROUTE MOVED HERE
-// =========================
-app.get("/api/seed", async (req, res) => {
-  const pool = require("./config/db");
-  const bcrypt = require("bcrypt");
-
-  try {
-    const password = await bcrypt.hash("Admin123!", 10);
-
-    const users = [
-      ["System Director", "director@tradetech.com", "director"],
-      ["System Manager", "manager@tradetech.com", "manager"],
-      ["System Cashier", "cashier@tradetech.com", "cashier"],
-      ["System User", "user@tradetech.com", "user"],
-    ];
-
-    for (const u of users) {
-      await pool.query(
-        `INSERT INTO users (name,email,password,role)
-         VALUES ($1,$2,$3,$4)
-         ON CONFLICT (email) DO NOTHING`,
-        [u[0], u[1], password, u[2]]
-      );
-    }
-
-    res.json({ message: "Seed complete" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// =========================
-// ❌ 404 HANDLER (MUST BE LAST)
-// =========================
+// 404 handler (MUST be last)
 app.use((req, res) => {
   console.log(`Route not found: ${req.method} ${req.url}`);
 
@@ -102,7 +70,7 @@ app.use((req, res) => {
   });
 });
 
-// Error handler
+// Global error handler
 app.use((err, req, res, next) => {
   console.error("Server error:", err);
 
