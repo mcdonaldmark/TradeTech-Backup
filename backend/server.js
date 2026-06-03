@@ -44,6 +44,7 @@ app.use((req, res, next) => {
   next();
 });
 
+// Root route
 app.get("/", (req, res) => {
   res.json({
     message: "API is running",
@@ -51,29 +52,16 @@ app.get("/", (req, res) => {
   });
 });
 
-
+// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/sales", salesRoutes);
 app.use("/api/orders", orderRoutes);
 
-app.use((req, res) => {
-  console.log(`Route not found: ${req.method} ${req.url}`);
-
-  res.status(404).json({
-    message: "Route not found",
-  });
-});
-
-app.use((err, req, res, next) => {
-  console.error("Server error:", err);
-
-  res.status(500).json({
-    message: "Internal server error",
-  });
-});
-
+// =========================
+// ✅ FIXED: SEED ROUTE MOVED HERE
+// =========================
 app.get("/api/seed", async (req, res) => {
   const pool = require("./config/db");
   const bcrypt = require("bcrypt");
@@ -101,6 +89,26 @@ app.get("/api/seed", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// =========================
+// ❌ 404 HANDLER (MUST BE LAST)
+// =========================
+app.use((req, res) => {
+  console.log(`Route not found: ${req.method} ${req.url}`);
+
+  res.status(404).json({
+    message: "Route not found",
+  });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error("Server error:", err);
+
+  res.status(500).json({
+    message: "Internal server error",
+  });
 });
 
 const PORT = process.env.PORT || 5000;
