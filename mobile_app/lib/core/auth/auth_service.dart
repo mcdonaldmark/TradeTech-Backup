@@ -9,11 +9,19 @@ static Future<bool> login(String email, String password) async {
       auth: false,
     );
 
+    print("LOGIN RESPONSE => $response");
+
+    if (response == null) {
+      print("LOGIN FAILED: null response");
+      return false;
+    }
+
     final token = response["token"];
     final user = response["user"];
 
     if (token == null || user == null) {
       print("LOGIN FAILED: missing token/user");
+      print("FULL RESPONSE: $response");
       return false;
     }
 

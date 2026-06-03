@@ -1,6 +1,5 @@
 const express = require("express");
 const cors = require("cors");
-const os = require("os");
 require("dotenv").config();
 
 const userRoutes = require("./routes/userRoutes");
@@ -11,9 +10,14 @@ const orderRoutes = require("./routes/orderRoutes");
 
 const app = express();
 
-console.log("SERVER VERSION: 2026-API-SEED-TEST");
+console.log("SERVER VERSION: 2026-API-FIXED");
 
-// -------------------- MIDDLEWARE --------------------
+// ---------------- MIDDLEWARE ----------------
+
+app.use((req, res, next) => {
+  console.log(`🔥 ${req.method} ${req.url}`);
+  next();
+});
 
 app.use(
   cors({
@@ -26,19 +30,13 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.url}`);
-  next();
-});
-
-// -------------------- ROUTES --------------------
+// ---------------- HEALTH CHECK ----------------
 
 app.get("/", (req, res) => {
-  res.json({
-    message: "API is running",
-    status: "ok",
-  });
+  res.json({ message: "API is running", status: "ok" });
 });
+
+// ---------------- ROUTES ----------------
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
@@ -46,12 +44,13 @@ app.use("/api/inventory", inventoryRoutes);
 app.use("/api/sales", salesRoutes);
 app.use("/api/orders", orderRoutes);
 
-// ✅ seed MUST be BEFORE 404 handler
-app.get("/api/seed", async (req, res) => {
-  const pool = require("./config/db");
-  const bcrypt = require("bcrypt");
+// ---------------- SEED (SAFE LOCATION) ----------------
 
+app.get("/api/seed", async (req, res) => {
   try {
+    const pool = require("./config/db");
+    const bcrypt = require("bcrypt");
+
     const password = await bcrypt.hash("Admin123!", 10);
 
     const users = [
@@ -72,36 +71,29 @@ app.get("/api/seed", async (req, res) => {
 
     res.json({ message: "Seed complete" });
   } catch (err) {
+    console.error("SEED ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// -------------------- 404 (MUST BE LAST) --------------------
+// ---------------- 404 (MUST BE LAST) ----------------
 
 app.use((req, res) => {
-  console.log(`Route not found: ${req.method} ${req.url}`);
-
-  res.status(404).json({
-    message: "Route not found",
-  });
+  console.log(`❌ 404: ${req.method} ${req.url}`);
+  res.status(404).json({ message: "Route not found" });
 });
 
-// -------------------- ERROR HANDLER --------------------
+// ---------------- ERROR HANDLER ----------------
 
 app.use((err, req, res, next) => {
-  console.error("Server error:", err);
-
-  res.status(500).json({
-    message: "Internal server error",
-  });
+  console.error("🔥 SERVER ERROR:", err);
+  res.status(500).json({ message: "Internal server error" });
 });
 
-// -------------------- START SERVER --------------------
+// ---------------- START ----------------
 
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log("Server started");
-  console.log("Local: http://localhost:" + PORT);
-  console.log("Health check ready");
+  console.log(`Server running on port ${PORT}`);
 });

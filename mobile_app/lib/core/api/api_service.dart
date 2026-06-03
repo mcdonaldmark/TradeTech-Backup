@@ -7,11 +7,7 @@ class ApiService {
       "https://tradetech-api-ksas.onrender.com/api";
 
   static Uri _url(String endpoint) {
-    // ✅ FIX: prevents //auth/login bug
-    final cleanEndpoint =
-        endpoint.startsWith("/") ? endpoint.substring(1) : endpoint;
-
-    return Uri.parse("$baseUrl/$cleanEndpoint");
+    return Uri.parse("$baseUrl/$endpoint");
   }
 
   static Future<Map<String, String>> _headers({
@@ -26,60 +22,35 @@ class ApiService {
     };
   }
 
-  static Future<dynamic> get(String endpoint) async {
-    final res = await http
-        .get(_url(endpoint), headers: await _headers())
-        .timeout(const Duration(seconds: 10));
-
-    return _handleResponse(res);
-  }
-
   static Future<dynamic> post(
     String endpoint,
     Map data, {
     bool auth = true,
   }) async {
-    final res = await http
-        .post(
-          _url(endpoint),
-          headers: await _headers(includeAuth: auth),
-          body: jsonEncode(data),
-        )
-        .timeout(const Duration(seconds: 10));
+    final url = _url(endpoint);
 
-    return _handleResponse(res);
-  }
+    print("📡 POST => $url");
+    print("📦 BODY => $data");
 
-  static Future<dynamic> put(String endpoint, Map data) async {
-    final res = await http
-        .put(
-          _url(endpoint),
-          headers: await _headers(),
-          body: jsonEncode(data),
-        )
-        .timeout(const Duration(seconds: 10));
+    final res = await http.post(
+      url,
+      headers: await _headers(includeAuth: auth),
+      body: jsonEncode(data),
+    );
 
-    return _handleResponse(res);
-  }
-
-  static Future<dynamic> delete(String endpoint) async {
-    final res = await http
-        .delete(_url(endpoint), headers: await _headers())
-        .timeout(const Duration(seconds: 10));
+    print("📥 STATUS => ${res.statusCode}");
+    print("📥 RESPONSE => ${res.body}");
 
     return _handleResponse(res);
   }
 
   static dynamic _handleResponse(http.Response res) {
-    final decoded =
-        res.body.isNotEmpty ? jsonDecode(res.body) : null;
+    final decoded = res.body.isNotEmpty ? jsonDecode(res.body) : null;
 
     if (res.statusCode >= 200 && res.statusCode < 300) {
       return decoded;
     }
 
-    throw Exception(
-      decoded?["message"] ?? decoded?["error"] ?? res.body,
-    );
+    throw Exception(decoded?["message"] ?? decoded?["error"] ?? res.body);
   }
 }
