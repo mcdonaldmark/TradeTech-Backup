@@ -11,24 +11,9 @@ const orderRoutes = require("./routes/orderRoutes");
 
 const app = express();
 
-console.log("SERVER VERSION: 2026-API-PROD-CLEAN");
+console.log("SERVER VERSION: 2026-API-SEED-TEST");
 
-const getLocalIP = () => {
-  const nets = os.networkInterfaces();
-
-  for (const name of Object.keys(nets)) {
-    for (const net of nets[name]) {
-      if (net.family === "IPv4" && !net.internal) {
-        return net.address;
-      }
-    }
-  }
-  return "localhost";
-};
-
-const LOCAL_IP = getLocalIP();
-
-// CORS
+// Middleware
 app.use(
   cors({
     origin: "*",
@@ -40,7 +25,6 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request logger
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
   next();
@@ -54,14 +38,44 @@ app.get("/", (req, res) => {
   });
 });
 
-// API Routes
+// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/sales", salesRoutes);
 app.use("/api/orders", orderRoutes);
 
-// 404 handler (MUST be last)
+// Seed route (MOVE ABOVE 404 HANDLER)
+app.get("/api/seed", async (req, res) => {
+  const pool = require("./config/db");
+  const bcrypt = require("bcrypt");
+
+  try {
+    const password = await bcrypt.hash("Admin123!", 10);
+
+    const users = [
+      ["System Director", "director@tradetech.com", "director"],
+      ["System Manager", "manager@tradetech.com", "manager"],
+      ["System Cashier", "cashier@tradetech.com", "cashier"],
+      ["System User", "user@tradetech.com", "user"],
+    ];
+
+    for (const u of users) {
+      await pool.query(
+        `INSERT INTO users (name,email,password,role)
+         VALUES ($1,$2,$3,$4)
+         ON CONFLICT (email) DO NOTHING`,
+        [u[0], u[1], password, u[2]]
+      );
+    }
+
+    res.json({ message: "Seed complete" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 404 handler (MUST BE LAST)
 app.use((req, res) => {
   console.log(`Route not found: ${req.method} ${req.url}`);
 
@@ -70,7 +84,7 @@ app.use((req, res) => {
   });
 });
 
-// Global error handler
+// Error handler (LAST OF ALL)
 app.use((err, req, res, next) => {
   console.error("Server error:", err);
 
@@ -82,7 +96,5 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log("Server started");
-  console.log("Local: http://localhost:" + PORT);
-  console.log("Health check ready");
+  console.log("Server started on port", PORT);
 });
