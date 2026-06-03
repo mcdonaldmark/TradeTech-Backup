@@ -38,7 +38,6 @@ class _LoginScreenState extends State<LoginScreen> {
         throw Exception("Invalid login response");
       }
 
-      // ✅ FIXED: proper auth handling
       await AuthService.loginUser(token, user);
 
       await TokenStorage.saveToken(token);

@@ -171,7 +171,6 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
   String get worstProduct =>
       sortedProducts.isNotEmpty ? sortedProducts.last.key : "";
 
-  // ✅ NEW: safely get image from sales (multiple fallback keys)
   String getProductImage(String name) {
     final match = filteredSales.firstWhere(
       (s) => s["product_name"] == name,

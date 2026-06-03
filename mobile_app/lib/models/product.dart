@@ -5,7 +5,6 @@ class Product {
   final int quantity;
   final double price;
 
-  // ✅ NEW FIELD
   final double? costPrice;
 
   final String? imageUrl;
@@ -31,7 +30,6 @@ class Product {
           ? (json['price'] as num).toDouble()
           : double.tryParse(json['price'].toString()) ?? 0,
 
-      // ✅ FIXED SAFE PARSING (THIS FIXES YOUR ERROR)
       costPrice: json['cost_price'] == null
           ? null
           : double.tryParse(json['cost_price'].toString()),
@@ -48,7 +46,6 @@ class Product {
       'quantity': quantity,
       'price': price,
 
-      // keep backend consistent
       'cost_price': costPrice,
 
       'image_url': imageUrl,

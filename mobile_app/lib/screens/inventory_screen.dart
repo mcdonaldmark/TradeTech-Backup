@@ -65,7 +65,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     fetchProducts();
   }
 
-  // ================= FIXED IMAGE PICKER =================
   Future<String?> pickImageBase64() async {
     final picker = ImagePicker();
 
@@ -80,7 +79,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return base64Encode(bytes);
   }
 
-  // ================= SAFE IMAGE DISPLAY =================
   Widget buildImage(String? img) {
     if (img == null || img.isEmpty) {
       return const Icon(Icons.image, size: 40);
@@ -147,7 +145,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         const InputDecoration(labelText: "Price"),
                   ),
 
-                  // ✅ NEW COST PRICE FIELD
                   TextField(
                     controller: costController,
                     keyboardType: TextInputType.number,

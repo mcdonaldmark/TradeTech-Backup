@@ -14,7 +14,6 @@ class OrderHistoryScreen extends StatefulWidget {
 }
 
 class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
-  // ✅ RENDER BACKEND
   final String baseUrl = "https://tradetech-api-ksas.onrender.com/api";
 
   List orders = [];
@@ -35,7 +34,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     fetchOrders();
   }
 
-  // ================= USERS (FOR DROPDOWN SEARCH) =================
+  // ================= USERS =================
   Future<void> fetchUsers() async {
     try {
       final token = await TokenStorage.getToken();
@@ -70,7 +69,6 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
       if (role == "user") {
         endpoint = "$baseUrl/orders/my";
       } else {
-        // cashier/manager: filter by selected user OR load all
         endpoint = userId != null
             ? "$baseUrl/orders?user_id=$userId"
             : "$baseUrl/orders";
@@ -218,7 +216,6 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
 
           const SizedBox(height: 8),
 
-          // ================= STATES =================
           if (loading)
             const Expanded(
               child: Center(child: CircularProgressIndicator()),

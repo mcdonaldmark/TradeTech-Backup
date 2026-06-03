@@ -21,7 +21,6 @@ class AuthService {
     await TokenStorage.saveToken(token);
   }
 
-  // ================= LOAD TOKEN =================
   static Future<void> loadToken() async {
     _token = await TokenStorage.getToken();
   }

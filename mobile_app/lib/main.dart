@@ -12,7 +12,6 @@ import 'screens/orders_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ✅ Load saved token + user session BEFORE app starts
   await AuthService.loadToken();
 
   runApp(const TradeTechApp());
@@ -28,9 +27,6 @@ class TradeTechApp extends StatelessWidget {
       title: 'TradeTech',
       theme: ThemeData(primarySwatch: Colors.blue),
 
-      // 🔥 IMPORTANT CHANGE:
-      // We no longer hardcode LoginScreen as the entry point
-      // We let RoleRouter decide OR fallback logic handle auth state
       home: const LoginScreen(),
 
       routes: {

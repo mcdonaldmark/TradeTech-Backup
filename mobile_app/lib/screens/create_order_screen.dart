@@ -14,7 +14,6 @@ class CreateOrderScreen extends StatefulWidget {
 }
 
 class _CreateOrderScreenState extends State<CreateOrderScreen> {
-  // ✅ FIXED FOR RENDER (CHANGE THIS TO YOUR REAL URL)
   final String baseUrl = "https://tradetech-api-ksas.onrender.com/api";
 
   List users = [];
@@ -45,7 +44,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     }
   }
 
-  // ================= LOAD DATA (FIXED FOR RENDER) =================
   Future<void> loadData() async {
     final token = await TokenStorage.getToken();
 
@@ -88,7 +86,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     }
   }
 
-  // ================= SAFE LIST PARSER =================
   List _safeList(dynamic data) {
     if (data is List) return data;
     if (data is Map && data["data"] is List) return data["data"];
@@ -189,7 +186,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
   double get total => cart.fold(0, (sum, item) => sum + item.subtotal);
 
-  // ================= IMAGE =================
   String _imageOf(dynamic p) {
     final img = p['image_url'];
     if (img == null || img.toString().isEmpty) return "";
@@ -298,7 +294,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                       ),
                     ),
 
-                    // ================= INVENTORY DISPLAY (FIXED) =================
+                    // ================= INVENTORY DISPLAY =================
                     ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
