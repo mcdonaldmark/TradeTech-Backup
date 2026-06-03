@@ -42,6 +42,21 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     }
   }
 
+  // ================= SAFE DECODER (FIX FOR INVENTORY ISSUE) =================
+  List safeDecode(String body) {
+    final decoded = jsonDecode(body);
+
+    if (decoded is List) return decoded;
+
+    if (decoded is Map) {
+      if (decoded["data"] is List) return decoded["data"];
+      if (decoded["inventory"] is List) return decoded["inventory"];
+      if (decoded["products"] is List) return decoded["products"];
+    }
+
+    return [];
+  }
+
   Future<void> _loadCurrentUserName() async {
     try {
       final token = await TokenStorage.getToken();
@@ -54,7 +69,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         },
       );
 
-      final allUsers = jsonDecode(res.body);
+      final allUsers = safeDecode(res.body);
 
       final current = allUsers.firstWhere(
         (u) => u['id'] == AuthService.currentUserId,
@@ -72,7 +87,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     }
   }
 
-  // ================= FIXED LOAD DATA =================
+  // ================= LOAD USERS + INVENTORY =================
   Future<void> loadData() async {
     final token = await TokenStorage.getToken();
 
@@ -92,23 +107,9 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       },
     );
 
-    dynamic decodeBody(String body) {
-      final decoded = jsonDecode(body);
-
-      if (decoded is List) return decoded;
-
-      if (decoded is Map) {
-        if (decoded["data"] is List) return decoded["data"];
-        if (decoded["products"] is List) return decoded["products"];
-        if (decoded["inventory"] is List) return decoded["inventory"];
-      }
-
-      return [];
-    }
-
     setState(() {
-      users = decodeBody(u.body);
-      products = decodeBody(p.body);
+      users = safeDecode(u.body);
+      products = safeDecode(p.body);
     });
   }
 
@@ -182,9 +183,8 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
   double get total => cart.fold(0, (sum, item) => sum + item.subtotal);
 
-  // ================= SAFE IMAGE =================
   String _imageOf(dynamic p) {
-    final img = (p is Map) ? p['image_url'] : null;
+    final img = p['image_url'];
     if (img == null || img.toString().isEmpty) return "";
     return img.toString();
   }
@@ -243,6 +243,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
           ),
           child: Column(
             children: [
+
               const SizedBox(height: 10),
 
               // ================= USER SEARCH =================
@@ -302,6 +303,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                 itemCount: filteredProducts.length,
                 itemBuilder: (_, i) {
                   final p = filteredProducts[i];
+
                   final img = _imageOf(p);
 
                   return ListTile(
