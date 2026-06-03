@@ -16,39 +16,43 @@ class AuthService {
 
   // LOGIN
   static Future<bool> login(String email, String password) async {
-    try {
-      final response = await ApiService.post(
-        "auth/login",
-        {
-          "email": email,
-          "password": password,
-        },
-        auth: false,
-      );
+  try {
+    final response = await ApiService.post(
+      "auth/login",
+      {
+        "email": email,
+        "password": password,
+      },
+      auth: false,
+    );
 
-      final data = response["data"] ?? response;
+    print("LOGIN RAW RESPONSE: $response");
 
-      final token = data["token"];
-      final user = data["user"];
+    final data = response["data"] ?? response;
 
-      if (token == null || user == null) {
-        print("LOGIN FAILED: invalid response");
-        return false;
-      }
+    final token = data["token"] ?? response["token"];
+    final user = data["user"] ?? response["user"];
 
-      _token = token;
-      await TokenStorage.saveToken(token);
-
-      currentRole = user["role"];
-      currentUserId = user["id"];
-      currentUserName = user["name"];
-
-      return true;
-    } catch (e) {
-      print("LOGIN ERROR: $e");
+    if (token == null || user == null) {
+      print("LOGIN FAILED: missing token/user");
+      print("TOKEN: $token");
+      print("USER: $user");
       return false;
     }
+
+    _token = token;
+    await TokenStorage.saveToken(token);
+
+    currentRole = user["role"];
+    currentUserId = user["id"];
+    currentUserName = user["name"];
+
+    return true;
+  } catch (e) {
+    print("LOGIN ERROR: $e");
+    return false;
   }
+}
 
   // LOGOUT
   static Future<void> logout() async {
