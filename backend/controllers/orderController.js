@@ -41,9 +41,6 @@ exports.createOrder = async (req, res) => {
       const subtotal = product.price * item.quantity;
       total += subtotal;
 
-      // -------------------------
-      // ORDER ITEMS (unchanged)
-      // -------------------------
       await pool.query(
         `INSERT INTO order_items
         (order_id, product_id, product_name, quantity, price, subtotal)
@@ -63,9 +60,6 @@ exports.createOrder = async (req, res) => {
         [item.quantity, product.id]
       );
 
-      // -------------------------
-      // 🔥 FIXED SALES INSERT (THIS WAS BROKEN)
-      // -------------------------
       const safeProductName = String(
         product?.name || "Deleted Product"
       );

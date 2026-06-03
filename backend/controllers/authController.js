@@ -10,7 +10,6 @@ const roleHierarchy = {
 };
 
 const canCreateRole = (creatorRole, targetRole) => {
-  // only director can create manager/director
   if (targetRole === "director") return creatorRole === "director";
   if (targetRole === "manager") return ["manager", "director"].includes(creatorRole);
   if (targetRole === "cashier") return ["manager", "director"].includes(creatorRole);

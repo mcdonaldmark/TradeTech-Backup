@@ -15,7 +15,6 @@ const app = express();
 
 console.log("SERVER STARTED");
 
-// ---------------- MIDDLEWARE ----------------
 app.use(cors({
   origin: "*",
   methods: ["GET", "POST", "PUT", "DELETE"],
@@ -24,12 +23,10 @@ app.use(cors({
 
 app.use(express.json());
 
-// ---------------- HEALTH CHECK ----------------
 app.get("/", (req, res) => {
   res.json({ status: "ok", message: "API running" });
 });
 
-// ---------------- SEED (MUST BE ABOVE 404) ----------------
 app.get("/api/seed", async (req, res) => {
   try {
     const password = await bcrypt.hash("Admin123!", 10);
@@ -65,7 +62,6 @@ app.use("/api/inventory", inventoryRoutes);
 app.use("/api/sales", salesRoutes);
 app.use("/api/orders", orderRoutes);
 
-// ---------------- 404 LAST ----------------
 app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });
 });

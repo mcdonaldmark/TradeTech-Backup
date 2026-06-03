@@ -10,7 +10,6 @@ exports.createSale = async (req, res) => {
 
     let product = null;
 
-    // 1. Try to find product
     if (product_id) {
       const result = await pool.query(
         "SELECT * FROM inventory WHERE id = $1",
@@ -26,12 +25,10 @@ exports.createSale = async (req, res) => {
       product = result.rows[0] || null;
     }
 
-    // 2. Validate quantity early
     if (!quantity_sold || quantity_sold <= 0) {
       return res.status(400).json({ message: "Invalid quantity" });
     }
 
-    // 3. SAFE PRODUCT NAME (CRITICAL FIX)
     const safeProductName = String(
       product?.name ||
       product_name ||
@@ -43,7 +40,6 @@ exports.createSale = async (req, res) => {
     const unit_price = Number(product?.price ?? 0);
     const cost_price = Number(product?.cost_price ?? 0);
 
-    // 4. Only check stock if product exists
     if (product && product.quantity < quantity_sold) {
       return res.status(400).json({ message: "Insufficient stock" });
     }
