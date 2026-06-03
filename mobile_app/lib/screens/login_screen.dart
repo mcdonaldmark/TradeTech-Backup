@@ -23,46 +23,40 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> login() async {
-    if (loading) return; // 🔥 prevents double taps
+  static Future<bool> login(String email, String password) async {
+  try {
+    final res = await ApiService.post(
+      "auth/login",
+      {
+        "email": email,
+        "password": password,
+      },
+      auth: false,
+    );
 
-    setState(() {
-      loading = true;
-      error = null;
-    });
+    final data = res["data"] ?? res;
 
-    try {
-      final success = await AuthService.login(
-        emailController.text.trim(),
-        passwordController.text.trim(),
-      );
+    final token = data["token"];
+    final user = data["user"];
 
-      if (!mounted) return;
-
-      if (success) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const RoleRouter(),
-          ),
-        );
-      } else {
-        setState(() {
-          error = "Invalid email or password";
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          error = "Login error. Please try again.";
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() => loading = false);
-      }
+    if (token == null || user == null) {
+      print("LOGIN FAILED");
+      return false;
     }
+
+    await TokenStorage.saveToken(token);
+
+    _token = token;
+    currentRole = user["role"];
+    currentUserId = user["id"];
+    currentUserName = user["name"];
+
+    return true;
+  } catch (e) {
+    print("LOGIN ERROR: $e");
+    return false;
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -114,7 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: loading ? null : login,
+                    onPressed: loading ? null : () => login(),
                     child: loading
                         ? const SizedBox(
                             height: 20,

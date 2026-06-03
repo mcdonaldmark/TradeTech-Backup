@@ -1,25 +1,26 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../storage/token_storage.dart';
+import '../../storage/token_storage.dart';
 
 class ApiService {
-  static const String baseUrl =
+  static const baseUrl =
       "https://tradetech-api-ksas.onrender.com/api";
 
-  static Uri _url(String endpoint) {
-    return Uri.parse("$baseUrl/$endpoint");
-  }
+  static Uri _url(String endpoint) =>
+      Uri.parse("$baseUrl/$endpoint");
 
-  static Future<Map<String, String>> _headers({
-    bool includeAuth = true,
-  }) async {
+  static Future<Map<String, String>> _headers({bool auth = true}) async {
     final token = await TokenStorage.getToken();
 
-    return {
+    final headers = {
       "Content-Type": "application/json",
-      if (includeAuth && token != null)
-        "Authorization": "Bearer $token",
     };
+
+    if (auth && token != null) {
+      headers["Authorization"] = "Bearer $token";
+    }
+
+    return headers;
   }
 
   static Future<dynamic> get(String endpoint) async {
@@ -28,7 +29,7 @@ class ApiService {
       headers: await _headers(),
     );
 
-    return _handleResponse(res);
+    return _handle(res);
   }
 
   static Future<dynamic> post(
@@ -38,11 +39,11 @@ class ApiService {
   }) async {
     final res = await http.post(
       _url(endpoint),
-      headers: await _headers(includeAuth: auth),
+      headers: await _headers(auth: auth),
       body: jsonEncode(data),
     );
 
-    return _handleResponse(res);
+    return _handle(res);
   }
 
   static Future<dynamic> put(String endpoint, Map data) async {
@@ -52,7 +53,7 @@ class ApiService {
       body: jsonEncode(data),
     );
 
-    return _handleResponse(res);
+    return _handle(res);
   }
 
   static Future<dynamic> delete(String endpoint) async {
@@ -61,24 +62,17 @@ class ApiService {
       headers: await _headers(),
     );
 
-    return _handleResponse(res);
+    return _handle(res);
   }
 
-  static dynamic _handleResponse(http.Response res) {
-    final decoded =
+  static dynamic _handle(http.Response res) {
+    final body =
         res.body.isNotEmpty ? jsonDecode(res.body) : null;
 
-    print("STATUS: ${res.statusCode}");
-    print("BODY: ${res.body}");
-
     if (res.statusCode >= 200 && res.statusCode < 300) {
-      return decoded;
+      return body;
     }
 
-    throw Exception(
-      decoded?["message"] ??
-          decoded?["error"] ??
-          "Request failed",
-    );
+    throw Exception(body?["message"] ?? res.body);
   }
 }
