@@ -22,35 +22,63 @@ class ApiService {
     };
   }
 
+  static Future<dynamic> get(String endpoint) async {
+    final res = await http.get(
+      _url(endpoint),
+      headers: await _headers(),
+    );
+
+    return _handleResponse(res);
+  }
+
   static Future<dynamic> post(
     String endpoint,
     Map data, {
     bool auth = true,
   }) async {
-    final url = _url(endpoint);
-
-    print("📡 POST => $url");
-    print("📦 BODY => $data");
-
     final res = await http.post(
-      url,
+      _url(endpoint),
       headers: await _headers(includeAuth: auth),
       body: jsonEncode(data),
     );
 
-    print("📥 STATUS => ${res.statusCode}");
-    print("📥 RESPONSE => ${res.body}");
+    return _handleResponse(res);
+  }
+
+  static Future<dynamic> put(String endpoint, Map data) async {
+    final res = await http.put(
+      _url(endpoint),
+      headers: await _headers(),
+      body: jsonEncode(data),
+    );
+
+    return _handleResponse(res);
+  }
+
+  static Future<dynamic> delete(String endpoint) async {
+    final res = await http.delete(
+      _url(endpoint),
+      headers: await _headers(),
+    );
 
     return _handleResponse(res);
   }
 
   static dynamic _handleResponse(http.Response res) {
-    final decoded = res.body.isNotEmpty ? jsonDecode(res.body) : null;
+    final decoded =
+        res.body.isNotEmpty ? jsonDecode(res.body) : null;
+
+    print("STATUS: ${res.statusCode}");
+    print("BODY: ${res.body}");
 
     if (res.statusCode >= 200 && res.statusCode < 300) {
       return decoded;
     }
 
-    throw Exception(decoded?["message"] ?? decoded?["error"] ?? res.body);
+    throw Exception(
+      decoded?["message"] ??
+          decoded?["error"] ??
+          "Request failed",
+    );
   }
 }
