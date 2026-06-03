@@ -103,4 +103,9 @@ router.delete("/:id", authMiddleware, async (req, res) => {
   }
 });
 
+router.post("/login", (req, res, next) => {
+  console.log("LOGIN HIT:", req.body);
+  next();
+}, login);
+
 module.exports = router;
