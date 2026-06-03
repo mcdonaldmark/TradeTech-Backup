@@ -3,7 +3,8 @@ import 'package:http/http.dart' as http;
 import '../storage/token_storage.dart';
 
 class ApiService {
-  static const String baseUrl = "http://192.168.68.114:5000/api";
+  static const String baseUrl =
+      "https://tradetech-api-ksas.onrender.com/api";
 
   static Future<Map<String, String>> _headers({
     bool includeAuth = true,

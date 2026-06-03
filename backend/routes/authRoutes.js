@@ -103,4 +103,6 @@ router.delete("/:id", authMiddleware, async (req, res) => {
   }
 });
 
+console.log("AUTH ROUTES LOADED");
+
 module.exports = router;

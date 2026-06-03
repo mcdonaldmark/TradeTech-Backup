@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'core/auth/auth_service.dart';
+
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/inventory_screen.dart';
@@ -7,7 +9,12 @@ import 'screens/users_screen.dart';
 import 'screens/profit_loss_screen.dart';
 import 'screens/orders_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // ✅ Load saved token + user session BEFORE app starts
+  await AuthService.loadSession();
+
   runApp(const TradeTechApp());
 }
 
@@ -21,6 +28,9 @@ class TradeTechApp extends StatelessWidget {
       title: 'TradeTech',
       theme: ThemeData(primarySwatch: Colors.blue),
 
+      // 🔥 IMPORTANT CHANGE:
+      // We no longer hardcode LoginScreen as the entry point
+      // We let RoleRouter decide OR fallback logic handle auth state
       home: const LoginScreen(),
 
       routes: {
@@ -29,7 +39,7 @@ class TradeTechApp extends StatelessWidget {
         "/sales": (_) => const SalesScreen(),
         "/users": (_) => const UsersScreen(),
         "/profit-loss": (_) => const ProfitLossScreen(),
-        "/orders": (_) => OrdersScreen(),
+        "/orders": (_) => const OrdersScreen(),
       },
     );
   }

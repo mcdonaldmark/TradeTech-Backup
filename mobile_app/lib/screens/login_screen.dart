@@ -14,6 +14,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final passwordController = TextEditingController();
 
   bool loading = false;
+  String? error;
 
   @override
   void dispose() {
@@ -23,7 +24,12 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> login() async {
-    setState(() => loading = true);
+    if (loading) return; // 🔥 prevents double taps
+
+    setState(() {
+      loading = true;
+      error = null;
+    });
 
     try {
       final success = await AuthService.login(
@@ -34,7 +40,6 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (success) {
-
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -42,15 +47,15 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Invalid email or password")),
-        );
+        setState(() {
+          error = "Invalid email or password";
+        });
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Login error: $e")),
-        );
+        setState(() {
+          error = "Login error. Please try again.";
+        });
       }
     } finally {
       if (mounted) {
@@ -73,25 +78,53 @@ class _LoginScreenState extends State<LoginScreen> {
                   "TradeTech Login",
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
+
                 const SizedBox(height: 30),
+
                 TextField(
                   controller: emailController,
-                  decoration: const InputDecoration(labelText: "Email"),
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: "Email",
+                    border: OutlineInputBorder(),
+                  ),
                 ),
+
                 const SizedBox(height: 10),
+
                 TextField(
                   controller: passwordController,
                   obscureText: true,
-                  decoration: const InputDecoration(labelText: "Password"),
+                  decoration: const InputDecoration(
+                    labelText: "Password",
+                    border: OutlineInputBorder(),
+                  ),
                 ),
+
                 const SizedBox(height: 20),
+
+                if (error != null)
+                  Text(
+                    error!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+
+                const SizedBox(height: 10),
+
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: loading ? null : login,
-                    child: Text(
-                      loading ? "Logging in..." : "Login",
-                    ),
+                    child: loading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text("Login"),
                   ),
                 ),
               ],
