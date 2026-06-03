@@ -72,6 +72,35 @@ app.use((err, req, res, next) => {
   });
 });
 
+app.get("/api/seed", async (req, res) => {
+  const pool = require("./config/db");
+  const bcrypt = require("bcrypt");
+
+  try {
+    const password = await bcrypt.hash("Admin123!", 10);
+
+    const users = [
+      ["System Director", "director@tradetech.com", "director"],
+      ["System Manager", "manager@tradetech.com", "manager"],
+      ["System Cashier", "cashier@tradetech.com", "cashier"],
+      ["System User", "user@tradetech.com", "user"],
+    ];
+
+    for (const u of users) {
+      await pool.query(
+        `INSERT INTO users (name,email,password,role)
+         VALUES ($1,$2,$3,$4)
+         ON CONFLICT (email) DO NOTHING`,
+        [u[0], u[1], password, u[2]]
+      );
+    }
+
+    res.json({ message: "Seed complete" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, "0.0.0.0", () => {
