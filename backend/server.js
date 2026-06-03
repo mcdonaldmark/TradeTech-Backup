@@ -11,6 +11,8 @@ const orderRoutes = require("./routes/orderRoutes");
 
 const app = express();
 
+console.log("SERVER VERSION: 2026-API-SEED-TEST");
+
 const getLocalIP = () => {
   const nets = os.networkInterfaces();
 
