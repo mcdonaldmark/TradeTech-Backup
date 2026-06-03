@@ -1,52 +1,32 @@
-import '../api/api_service.dart';
-import '../storage/token_storage.dart';
+static Future<bool> login(String email, String password) async {
+  try {
+    final response = await ApiService.post(
+      "auth/login",
+      {
+        "email": email,
+        "password": password,
+      },
+      auth: false,
+    );
 
-class AuthService {
-  static String? currentRole;
-  static int? currentUserId;
-  static String? currentUserName;
-  static String? _token;
+    final data = (response is Map && response["token"] != null)
+        ? response
+        : response?["data"] ?? response;
 
-  static String? get token => _token;
+    final token = data?["token"];
+    final user = data?["user"];
 
-  static Future<bool> login(String email, String password) async {
-    try {
-      final response = await ApiService.post(
-        "auth/login",
-        {
-          "email": email,
-          "password": password,
-        },
-        auth: false,
-      );
+    if (token == null || user == null) return false;
 
-      final data = (response is Map && response["data"] != null)
-          ? response["data"]
-          : response;
+    _token = token;
+    await TokenStorage.saveToken(token);
 
-      final token = data?["token"];
-      final user = data?["user"];
+    currentRole = user["role"];
+    currentUserId = user["id"];
+    currentUserName = user["name"];
 
-      if (token == null || user == null) return false;
-
-      _token = token;
-      await TokenStorage.saveToken(token);
-
-      currentRole = user["role"];
-      currentUserId = user["id"];
-      currentUserName = user["name"];
-
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  static Future<void> logout() async {
-    _token = null;
-    currentRole = null;
-    currentUserId = null;
-    currentUserName = null;
-    await TokenStorage.clear();
+    return true;
+  } catch (e) {
+    return false;
   }
 }

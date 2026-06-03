@@ -6,6 +6,10 @@ class ApiService {
   static const String baseUrl =
       "https://tradetech-api-ksas.onrender.com/api";
 
+  static Uri _url(String endpoint) {
+    return Uri.parse("$baseUrl/$endpoint");
+  }
+
   static Future<Map<String, String>> _headers({
     bool includeAuth = true,
   }) async {
@@ -19,18 +23,11 @@ class ApiService {
   }
 
   static Future<dynamic> get(String endpoint) async {
-    try {
-      final res = await http
-          .get(
-            Uri.parse("$baseUrl/$endpoint"),
-            headers: await _headers(),
-          )
-          .timeout(const Duration(seconds: 10));
+    final res = await http
+        .get(_url(endpoint), headers: await _headers())
+        .timeout(const Duration(seconds: 10));
 
-      return _handleResponse(res);
-    } catch (e) {
-      throw Exception("Network error: $e");
-    }
+    return _handleResponse(res);
   }
 
   static Future<dynamic> post(
@@ -38,50 +35,35 @@ class ApiService {
     Map data, {
     bool auth = true,
   }) async {
-    try {
-      final res = await http
-          .post(
-            Uri.parse("$baseUrl/$endpoint"),
-            headers: await _headers(includeAuth: auth),
-            body: jsonEncode(data),
-          )
-          .timeout(const Duration(seconds: 10)); // 🔥 FIX
+    final res = await http
+        .post(
+          _url(endpoint),
+          headers: await _headers(includeAuth: auth),
+          body: jsonEncode(data),
+        )
+        .timeout(const Duration(seconds: 10));
 
-      return _handleResponse(res);
-    } catch (e) {
-      throw Exception("Network error: $e");
-    }
+    return _handleResponse(res);
   }
 
   static Future<dynamic> put(String endpoint, Map data) async {
-    try {
-      final res = await http
-          .put(
-            Uri.parse("$baseUrl/$endpoint"),
-            headers: await _headers(),
-            body: jsonEncode(data),
-          )
-          .timeout(const Duration(seconds: 10));
+    final res = await http
+        .put(
+          _url(endpoint),
+          headers: await _headers(),
+          body: jsonEncode(data),
+        )
+        .timeout(const Duration(seconds: 10));
 
-      return _handleResponse(res);
-    } catch (e) {
-      throw Exception("Network error: $e");
-    }
+    return _handleResponse(res);
   }
 
   static Future<dynamic> delete(String endpoint) async {
-    try {
-      final res = await http
-          .delete(
-            Uri.parse("$baseUrl/$endpoint"),
-            headers: await _headers(),
-          )
-          .timeout(const Duration(seconds: 10));
+    final res = await http
+        .delete(_url(endpoint), headers: await _headers())
+        .timeout(const Duration(seconds: 10));
 
-      return _handleResponse(res);
-    } catch (e) {
-      throw Exception("Network error: $e");
-    }
+    return _handleResponse(res);
   }
 
   static dynamic _handleResponse(http.Response res) {
