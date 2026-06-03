@@ -5,7 +5,6 @@ import 'dart:convert';
 import '../core/storage/token_storage.dart';
 import '../core/auth/auth_service.dart';
 import 'order_receipt_screen.dart';
-import '../widgets/product_image.dart';
 
 class OrderHistoryScreen extends StatefulWidget {
   const OrderHistoryScreen({super.key});
@@ -15,44 +14,66 @@ class OrderHistoryScreen extends StatefulWidget {
 }
 
 class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
-  final String baseUrl = "http://192.168.68.114:5000/api";
+  // ✅ RENDER BACKEND
+  final String baseUrl = "https://tradetech-api-ksas.onrender.com/api";
 
   List orders = [];
-  bool loading = false;
+  List users = [];
+
+  bool loading = true;
 
   final TextEditingController searchController = TextEditingController();
 
-  String searchQuery = "";
+  List filteredUsers = [];
+  int? selectedUserId;
+  String? selectedUserName;
 
   @override
   void initState() {
     super.initState();
+    fetchUsers();
     fetchOrders();
   }
 
-  Future<void> fetchOrders() async {
+  // ================= USERS (FOR DROPDOWN SEARCH) =================
+  Future<void> fetchUsers() async {
     try {
-      setState(() => loading = true);
+      final token = await TokenStorage.getToken();
 
+      final res = await http.get(
+        Uri.parse("$baseUrl/users"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+      );
+
+      final data = jsonDecode(res.body);
+
+      setState(() {
+        users = data is List ? data : (data["data"] ?? []);
+      });
+    } catch (_) {}
+  }
+
+  // ================= ORDERS =================
+  Future<void> fetchOrders({int? userId}) async {
+    setState(() => loading = true);
+
+    try {
       final token = await TokenStorage.getToken();
       final role = AuthService.currentRole;
 
       String endpoint;
 
+      // USER sees only their orders
       if (role == "user") {
         endpoint = "$baseUrl/orders/my";
       } else {
-        final query = searchQuery.trim();
-
-        if (query.isEmpty) {
-          setState(() {
-            orders = [];
-            loading = false;
-          });
-          return;
-        }
-
-        endpoint = "$baseUrl/orders?search=$query";
+        // cashier/manager: filter by selected user OR load all
+        endpoint = userId != null
+            ? "$baseUrl/orders?user_id=$userId"
+            : "$baseUrl/orders";
       }
 
       final res = await http.get(
@@ -63,19 +84,14 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         },
       );
 
-      if (res.statusCode == 200) {
-        final decoded = jsonDecode(res.body);
+      final decoded = jsonDecode(res.body);
 
-        setState(() {
-          orders = decoded is List ? decoded : [];
-          loading = false;
-        });
-      } else {
-        setState(() {
-          orders = [];
-          loading = false;
-        });
-      }
+      setState(() {
+        orders = decoded is List
+            ? decoded
+            : (decoded["data"] ?? decoded["orders"] ?? []);
+        loading = false;
+      });
     } catch (e) {
       setState(() {
         orders = [];
@@ -84,6 +100,40 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     }
   }
 
+  // ================= USER SEARCH DROPDOWN =================
+  void searchUser(String query) {
+    final role = AuthService.currentRole;
+    if (role == "user") return;
+
+    if (query.trim().isEmpty) {
+      setState(() => filteredUsers = []);
+      return;
+    }
+
+    setState(() {
+      filteredUsers = users.where((u) {
+        final idMatch = u['id'].toString().contains(query);
+        final nameMatch =
+            u['name'].toString().toLowerCase().contains(query.toLowerCase());
+
+        return idMatch || nameMatch;
+      }).toList();
+    });
+  }
+
+  void selectUser(dynamic user) {
+    setState(() {
+      selectedUserId = user['id'];
+      selectedUserName = user['name'];
+
+      searchController.text = "${user['name']} (#${user['id']})";
+      filteredUsers.clear();
+
+      fetchOrders(userId: user['id']);
+    });
+  }
+
+  // ================= RECEIPT =================
   void openReceipt(orderId) async {
     try {
       final token = await TokenStorage.getToken();
@@ -96,12 +146,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         },
       );
 
-      if (res.statusCode != 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Failed to load receipt")),
-        );
-        return;
-      }
+      if (res.statusCode != 200) return;
 
       final decoded = jsonDecode(res.body);
 
@@ -111,21 +156,16 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
           builder: (_) => OrderReceiptScreen(order: decoded),
         ),
       );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
-    }
+    } catch (_) {}
   }
 
-  String _formatDate(String rawDate) {
+  String _formatDate(String raw) {
     try {
-      final date = DateTime.parse(rawDate);
-
-      return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} "
-             "${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}";
-    } catch (e) {
-      return rawDate;
+      final d = DateTime.parse(raw);
+      return "${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')} "
+          "${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}";
+    } catch (_) {
+      return raw;
     }
   }
 
@@ -139,6 +179,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
       body: Column(
         children: [
 
+          // ================= SEARCH DROPDOWN =================
           if (role != "user")
             Padding(
               padding: const EdgeInsets.all(12),
@@ -147,41 +188,50 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                   TextField(
                     controller: searchController,
                     decoration: const InputDecoration(
-                      labelText: "Search by User Name or ID",
+                      labelText: "Search User (Name or ID)",
                       prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
                     ),
+                    onChanged: searchUser,
                   ),
 
-                  const SizedBox(height: 8),
+                  if (filteredUsers.isNotEmpty)
+                    Container(
+                      height: 200,
+                      margin: const EdgeInsets.only(top: 8),
+                      child: ListView.builder(
+                        itemCount: filteredUsers.length,
+                        itemBuilder: (_, i) {
+                          final u = filteredUsers[i];
 
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        searchQuery = searchController.text.trim();
-                      });
-                      fetchOrders();
-                    },
-                    child: const Text("Search Orders"),
-                  ),
+                          return ListTile(
+                            title: Text(u['name']),
+                            subtitle: Text("ID: ${u['id']}"),
+                            onTap: () => selectUser(u),
+                          );
+                        },
+                      ),
+                    ),
                 ],
               ),
             ),
 
           const SizedBox(height: 8),
 
-          if (role != "user" && searchQuery.isEmpty)
-            const Expanded(
-              child: Center(
-                child: Text("Search a user to view order history"),
-              ),
-            )
-          else if (loading)
+          // ================= STATES =================
+          if (loading)
             const Expanded(
               child: Center(child: CircularProgressIndicator()),
             )
           else if (orders.isEmpty)
-            const Expanded(
-              child: Center(child: Text("No orders found")),
+            Expanded(
+              child: Center(
+                child: Text(
+                  selectedUserId == null
+                      ? "Search a user to view orders"
+                      : "No orders for this user",
+                ),
+              ),
             )
           else
             Expanded(
@@ -194,9 +244,9 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                     child: ListTile(
                       title: Text("Order #${o['id']}"),
                       subtitle: Text(
-                        "User: ${o['user_name'] ?? 'Unknown'}\n"
-                        "Total: \$${o['total']} • Status: ${o['status'] ?? 'pending'}\n"
-                        "Date: ${_formatDate(o['created_at'])}",
+                        "User: ${o['user_name'] ?? o['user'] ?? 'Unknown'}\n"
+                        "Total: \$${o['total']} • ${o['status'] ?? 'pending'}\n"
+                        "Date: ${_formatDate(o['created_at'] ?? '')}",
                       ),
                       trailing: const Icon(Icons.receipt_long),
                       onTap: () => openReceipt(o['id']),

@@ -14,7 +14,8 @@ class CreateOrderScreen extends StatefulWidget {
 }
 
 class _CreateOrderScreenState extends State<CreateOrderScreen> {
-  final String baseUrl = "http://192.168.68.114:5000/api";
+  // ✅ FIXED FOR RENDER (CHANGE THIS TO YOUR REAL URL)
+  final String baseUrl = "https://tradetech-api-ksas.onrender.com/api";
 
   List users = [];
   List products = [];
@@ -29,6 +30,8 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   String productQuery = "";
   List filteredUsers = [];
 
+  bool loading = true; // ✅ FIXED
+
   @override
   void initState() {
     super.initState();
@@ -42,18 +45,54 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     }
   }
 
-  // ================= SAFE DECODER (FIX FOR INVENTORY ISSUE) =================
-  List safeDecode(String body) {
-    final decoded = jsonDecode(body);
+  // ================= LOAD DATA (FIXED FOR RENDER) =================
+  Future<void> loadData() async {
+    final token = await TokenStorage.getToken();
 
-    if (decoded is List) return decoded;
+    try {
+      final userRes = await http.get(
+        Uri.parse("$baseUrl/users"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+      );
 
-    if (decoded is Map) {
-      if (decoded["data"] is List) return decoded["data"];
-      if (decoded["inventory"] is List) return decoded["inventory"];
-      if (decoded["products"] is List) return decoded["products"];
+      final inventoryRes = await http.get(
+        Uri.parse("$baseUrl/inventory"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+      );
+
+      final decodedUsers = jsonDecode(userRes.body);
+      final decodedProducts = jsonDecode(inventoryRes.body);
+
+      setState(() {
+        users = _safeList(decodedUsers);
+        products = _safeList(decodedProducts);
+
+        loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        loading = false;
+        users = [];
+        products = [];
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Inventory load failed: $e")),
+      );
     }
+  }
 
+  // ================= SAFE LIST PARSER =================
+  List _safeList(dynamic data) {
+    if (data is List) return data;
+    if (data is Map && data["data"] is List) return data["data"];
+    if (data is Map && data["inventory"] is List) return data["inventory"];
     return [];
   }
 
@@ -69,7 +108,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         },
       );
 
-      final allUsers = safeDecode(res.body);
+      final allUsers = _safeList(jsonDecode(res.body));
 
       final current = allUsers.firstWhere(
         (u) => u['id'] == AuthService.currentUserId,
@@ -87,37 +126,8 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     }
   }
 
-  // ================= LOAD USERS + INVENTORY =================
-  Future<void> loadData() async {
-    final token = await TokenStorage.getToken();
-
-    final u = await http.get(
-      Uri.parse("$baseUrl/users"),
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
-      },
-    );
-
-    final p = await http.get(
-      Uri.parse("$baseUrl/inventory"),
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
-      },
-    );
-
-    setState(() {
-      users = safeDecode(u.body);
-      products = safeDecode(p.body);
-    });
-  }
-
   // ================= USER SEARCH =================
   void searchUser(String query) {
-    final role = AuthService.currentRole;
-    if (role == "user") return;
-
     if (query.trim().isEmpty) {
       setState(() => filteredUsers = []);
       return;
@@ -135,9 +145,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   }
 
   void selectUser(dynamic user) {
-    final role = AuthService.currentRole;
-    if (role == "user") return;
-
     setState(() {
       selectedUserId = user['id'];
       selectedUserName = user['name'];
@@ -155,16 +162,15 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   }
 
   List get filteredProducts {
-    final list = products.where((p) => p is Map).toList();
+    if (productQuery.trim().isEmpty) return products;
 
-    if (productQuery.trim().isEmpty) return list;
-
-    return list.where((p) {
-      final name = (p['name'] ?? '').toString().toLowerCase();
+    return products.where((p) {
+      final name = p['name'].toString().toLowerCase();
       return name.contains(productQuery.toLowerCase());
     }).toList();
   }
 
+  // ================= CART =================
   void addToCart(product) {
     final index = cart.indexWhere((e) => e.productId == product['id']);
 
@@ -175,7 +181,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         cart.add(OrderItem(
           productId: product['id'],
           name: product['name'],
-          price: double.parse(product['price'].toString()),
+          price: double.tryParse(product['price'].toString()) ?? 0,
         ));
       }
     });
@@ -183,12 +189,14 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
   double get total => cart.fold(0, (sum, item) => sum + item.subtotal);
 
+  // ================= IMAGE =================
   String _imageOf(dynamic p) {
     final img = p['image_url'];
     if (img == null || img.toString().isEmpty) return "";
     return img.toString();
   }
 
+  // ================= SUBMIT ORDER =================
   Future<void> submitOrder() async {
     final token = await TokenStorage.getToken();
     final userId = selectedUserId ?? AuthService.currentUserId;
@@ -236,126 +244,118 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text("Create Order")),
 
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-          ),
-          child: Column(
-            children: [
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : SafeArea(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
 
-              const SizedBox(height: 10),
+                    const SizedBox(height: 10),
 
-              // ================= USER SEARCH =================
-              if (!isUser)
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    children: [
-                      TextField(
-                        controller: userSearchController,
+                    // ================= USER SEARCH =================
+                    if (!isUser)
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: TextField(
+                          controller: userSearchController,
+                          decoration: const InputDecoration(
+                            labelText: "Search User",
+                            prefixIcon: Icon(Icons.search),
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: searchUser,
+                        ),
+                      ),
+
+                    if (filteredUsers.isNotEmpty)
+                      SizedBox(
+                        height: 150,
+                        child: ListView.builder(
+                          itemCount: filteredUsers.length,
+                          itemBuilder: (_, i) {
+                            final user = filteredUsers[i];
+                            return ListTile(
+                              title: Text(user['name']),
+                              subtitle: Text("ID: ${user['id']}"),
+                              onTap: () => selectUser(user),
+                            );
+                          },
+                        ),
+                      ),
+
+                    // ================= PRODUCT SEARCH =================
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: TextField(
+                        controller: productSearchController,
                         decoration: const InputDecoration(
-                          labelText: "Search User",
+                          labelText: "Search Products",
                           prefixIcon: Icon(Icons.search),
                           border: OutlineInputBorder(),
                         ),
-                        onChanged: searchUser,
+                        onChanged: searchProducts,
                       ),
+                    ),
 
-                      if (filteredUsers.isNotEmpty)
-                        SizedBox(
-                          height: 200,
-                          child: ListView.builder(
-                            itemCount: filteredUsers.length,
-                            itemBuilder: (_, i) {
-                              final user = filteredUsers[i];
+                    // ================= INVENTORY DISPLAY (FIXED) =================
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: filteredProducts.length,
+                      itemBuilder: (_, i) {
+                        final p = filteredProducts[i];
+                        final img = _imageOf(p);
 
-                              return ListTile(
-                                title: Text(user['name']),
-                                subtitle: Text("ID: ${user['id']}"),
-                                onTap: () => selectUser(user),
-                              );
-                            },
+                        return ListTile(
+                          leading: img.isNotEmpty
+                              ? Image.memory(
+                                  base64Decode(img),
+                                  width: 45,
+                                  height: 45,
+                                  fit: BoxFit.cover,
+                                )
+                              : const Icon(Icons.image),
+
+                          title: Text(p['name']),
+                          subtitle: Text("\$${p['price']}"),
+
+                          trailing: IconButton(
+                            icon: const Icon(Icons.add),
+                            onPressed: () => addToCart(p),
                           ),
-                        ),
-                    ],
-                  ),
-                ),
-
-              // ================= PRODUCT SEARCH =================
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: TextField(
-                  controller: productSearchController,
-                  decoration: const InputDecoration(
-                    labelText: "Search Products",
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: searchProducts,
-                ),
-              ),
-
-              // ================= PRODUCTS =================
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: filteredProducts.length,
-                itemBuilder: (_, i) {
-                  final p = filteredProducts[i];
-
-                  final img = _imageOf(p);
-
-                  return ListTile(
-                    leading: img.isNotEmpty
-                        ? Image.memory(
-                            base64Decode(img),
-                            width: 45,
-                            height: 45,
-                            fit: BoxFit.cover,
-                          )
-                        : const Icon(Icons.image),
-
-                    title: Text(p['name']),
-                    subtitle: Text("\$${p['price']}"),
-
-                    trailing: IconButton(
-                      icon: const Icon(Icons.add),
-                      onPressed: () => addToCart(p),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
 
-              const Divider(),
+                    const Divider(),
 
-              // ================= TOTAL =================
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  children: [
-                    Text(
-                      "Total: \$${total.toStringAsFixed(2)}",
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: cart.isEmpty ? null : submitOrder,
-                        child: const Text("Submit Order"),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        children: [
+                          Text(
+                            "Total: \$${total.toStringAsFixed(2)}",
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: cart.isEmpty ? null : submitOrder,
+                              child: const Text("Submit Order"),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }
