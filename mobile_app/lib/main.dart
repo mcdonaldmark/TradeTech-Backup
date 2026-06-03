@@ -13,7 +13,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // ✅ Load saved token + user session BEFORE app starts
-  await AuthService.loadSession();
+  await AuthService.loadToken();
 
   runApp(const TradeTechApp());
 }
