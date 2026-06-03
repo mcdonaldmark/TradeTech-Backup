@@ -9,14 +9,13 @@ static Future<bool> login(String email, String password) async {
       auth: false,
     );
 
-    final data = (response is Map && response["token"] != null)
-        ? response
-        : response?["data"] ?? response;
+    final token = response["token"];
+    final user = response["user"];
 
-    final token = data?["token"];
-    final user = data?["user"];
-
-    if (token == null || user == null) return false;
+    if (token == null || user == null) {
+      print("LOGIN FAILED: missing token/user");
+      return false;
+    }
 
     _token = token;
     await TokenStorage.saveToken(token);
@@ -27,6 +26,7 @@ static Future<bool> login(String email, String password) async {
 
     return true;
   } catch (e) {
+    print("LOGIN ERROR: $e");
     return false;
   }
 }

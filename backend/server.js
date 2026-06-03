@@ -13,7 +13,8 @@ const app = express();
 
 console.log("SERVER VERSION: 2026-API-SEED-TEST");
 
-// Middleware
+// -------------------- MIDDLEWARE --------------------
+
 app.use(
   cors({
     origin: "*",
@@ -30,7 +31,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Root health check
+// -------------------- ROUTES --------------------
+
 app.get("/", (req, res) => {
   res.json({
     message: "API is running",
@@ -38,14 +40,13 @@ app.get("/", (req, res) => {
   });
 });
 
-// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/sales", salesRoutes);
 app.use("/api/orders", orderRoutes);
 
-// Seed route (MOVE ABOVE 404 HANDLER)
+// ✅ seed MUST be BEFORE 404 handler
 app.get("/api/seed", async (req, res) => {
   const pool = require("./config/db");
   const bcrypt = require("bcrypt");
@@ -75,7 +76,8 @@ app.get("/api/seed", async (req, res) => {
   }
 });
 
-// 404 handler (MUST BE LAST)
+// -------------------- 404 (MUST BE LAST) --------------------
+
 app.use((req, res) => {
   console.log(`Route not found: ${req.method} ${req.url}`);
 
@@ -84,7 +86,8 @@ app.use((req, res) => {
   });
 });
 
-// Error handler (LAST OF ALL)
+// -------------------- ERROR HANDLER --------------------
+
 app.use((err, req, res, next) => {
   console.error("Server error:", err);
 
@@ -93,8 +96,12 @@ app.use((err, req, res, next) => {
   });
 });
 
+// -------------------- START SERVER --------------------
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log("Server started on port", PORT);
+  console.log("Server started");
+  console.log("Local: http://localhost:" + PORT);
+  console.log("Health check ready");
 });

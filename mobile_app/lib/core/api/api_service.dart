@@ -7,7 +7,11 @@ class ApiService {
       "https://tradetech-api-ksas.onrender.com/api";
 
   static Uri _url(String endpoint) {
-    return Uri.parse("$baseUrl/$endpoint");
+    // ✅ FIX: prevents //auth/login bug
+    final cleanEndpoint =
+        endpoint.startsWith("/") ? endpoint.substring(1) : endpoint;
+
+    return Uri.parse("$baseUrl/$cleanEndpoint");
   }
 
   static Future<Map<String, String>> _headers({
