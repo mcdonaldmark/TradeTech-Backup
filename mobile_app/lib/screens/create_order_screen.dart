@@ -72,6 +72,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     }
   }
 
+  // ================= FIXED LOAD DATA =================
   Future<void> loadData() async {
     final token = await TokenStorage.getToken();
 
@@ -91,13 +92,27 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       },
     );
 
+    dynamic decodeBody(String body) {
+      final decoded = jsonDecode(body);
+
+      if (decoded is List) return decoded;
+
+      if (decoded is Map) {
+        if (decoded["data"] is List) return decoded["data"];
+        if (decoded["products"] is List) return decoded["products"];
+        if (decoded["inventory"] is List) return decoded["inventory"];
+      }
+
+      return [];
+    }
+
     setState(() {
-      users = jsonDecode(u.body);
-      products = jsonDecode(p.body);
+      users = decodeBody(u.body);
+      products = decodeBody(p.body);
     });
   }
 
-  // ================= USER SEARCH (RESTORED) =================
+  // ================= USER SEARCH =================
   void searchUser(String query) {
     final role = AuthService.currentRole;
     if (role == "user") return;
@@ -131,6 +146,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     });
   }
 
+  // ================= PRODUCT SEARCH =================
   void searchProducts(String query) {
     setState(() {
       productQuery = query;
@@ -138,10 +154,12 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   }
 
   List get filteredProducts {
-    if (productQuery.trim().isEmpty) return products;
+    final list = products.where((p) => p is Map).toList();
 
-    return products.where((p) {
-      final name = p['name'].toString().toLowerCase();
+    if (productQuery.trim().isEmpty) return list;
+
+    return list.where((p) {
+      final name = (p['name'] ?? '').toString().toLowerCase();
       return name.contains(productQuery.toLowerCase());
     }).toList();
   }
@@ -164,9 +182,9 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
   double get total => cart.fold(0, (sum, item) => sum + item.subtotal);
 
-  // ================= SAFE IMAGE (YOUR WORKING VERSION) =================
+  // ================= SAFE IMAGE =================
   String _imageOf(dynamic p) {
-    final img = p['image_url'];
+    final img = (p is Map) ? p['image_url'] : null;
     if (img == null || img.toString().isEmpty) return "";
     return img.toString();
   }
@@ -225,10 +243,9 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
           ),
           child: Column(
             children: [
-
               const SizedBox(height: 10),
 
-              // ================= USER SEARCH (RESTORED) =================
+              // ================= USER SEARCH =================
               if (!isUser)
                 Padding(
                   padding: const EdgeInsets.all(12),
@@ -278,14 +295,13 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                 ),
               ),
 
-              // ================= PRODUCTS + IMAGE =================
+              // ================= PRODUCTS =================
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: filteredProducts.length,
                 itemBuilder: (_, i) {
                   final p = filteredProducts[i];
-
                   final img = _imageOf(p);
 
                   return ListTile(
