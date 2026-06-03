@@ -34,7 +34,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// -------------------- BASE ROUTE --------------------
+// -------------------- ROOT --------------------
 
 app.get("/", (req, res) => {
   res.json({
@@ -43,33 +43,37 @@ app.get("/", (req, res) => {
   });
 });
 
-// -------------------- AUTO SEED --------------------
+// -------------------- SEED FUNCTION --------------------
 
-const autoSeed = async () => {
+const seedUsers = async () => {
+  const password = await bcrypt.hash("Admin123!", 10);
+
+  const users = [
+    ["System Director", "director@tradetech.com", "director"],
+    ["System Manager", "manager@tradetech.com", "manager"],
+    ["System Cashier", "cashier@tradetech.com", "cashier"],
+    ["System User", "user@tradetech.com", "user"],
+  ];
+
+  for (const u of users) {
+    await pool.query(
+      `INSERT INTO users (name, email, password, role)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (email) DO NOTHING`,
+      [u[0], u[1], password, u[2]]
+    );
+  }
+};
+
+// -------------------- INIT STARTUP --------------------
+
+const init = async () => {
   try {
-    console.log("Running auto-seed...");
-
-    const password = await bcrypt.hash("Admin123!", 10);
-
-    const users = [
-      ["System Director", "director@tradetech.com", "director"],
-      ["System Manager", "manager@tradetech.com", "manager"],
-      ["System Cashier", "cashier@tradetech.com", "cashier"],
-      ["System User", "user@tradetech.com", "user"],
-    ];
-
-    for (const u of users) {
-      await pool.query(
-        `INSERT INTO users (name, email, password, role)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (email) DO NOTHING`,
-        [u[0], u[1], password, u[2]]
-      );
-    }
-
-    console.log("Auto-seed complete");
+    console.log("Checking seed data...");
+    await seedUsers();
+    console.log("Seed check complete");
   } catch (err) {
-    console.error("Auto-seed error:", err.message);
+    console.error("Seed error:", err.message);
   }
 };
 
@@ -81,35 +85,18 @@ app.use("/api/inventory", inventoryRoutes);
 app.use("/api/sales", salesRoutes);
 app.use("/api/orders", orderRoutes);
 
-// -------------------- MANUAL SEED (OPTIONAL) --------------------
+// -------------------- OPTIONAL MANUAL SEED --------------------
 
 app.get("/api/seed", async (req, res) => {
   try {
-    const password = await bcrypt.hash("Admin123!", 10);
-
-    const users = [
-      ["System Director", "director@tradetech.com", "director"],
-      ["System Manager", "manager@tradetech.com", "manager"],
-      ["System Cashier", "cashier@tradetech.com", "cashier"],
-      ["System User", "user@tradetech.com", "user"],
-    ];
-
-    for (const u of users) {
-      await pool.query(
-        `INSERT INTO users (name, email, password, role)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (email) DO NOTHING`,
-        [u[0], u[1], password, u[2]]
-      );
-    }
-
+    await seedUsers();
     res.json({ message: "Seed complete" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// -------------------- 404 HANDLER (LAST) --------------------
+// -------------------- 404 HANDLER --------------------
 
 app.use((req, res) => {
   console.log(`Route not found: ${req.method} ${req.url}`);
@@ -138,6 +125,5 @@ app.listen(PORT, "0.0.0.0", async () => {
   console.log("Local: http://localhost:" + PORT);
   console.log("Health check ready");
 
-  // ✅ RUN SEED AUTOMATICALLY ON START
-  await autoSeed();
+  await init();
 });
