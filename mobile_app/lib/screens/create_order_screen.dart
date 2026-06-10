@@ -29,7 +29,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   String productQuery = "";
   List filteredUsers = [];
 
-  bool loading = true; // ✅ FIXED
+  bool loading = true; 
 
   @override
   void initState() {
@@ -184,6 +184,12 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     });
   }
 
+  void removeFromCart(int productId) {
+  setState(() {
+    cart.removeWhere((item) => item.productId == productId);
+  });
+}
+
   double get total => cart.fold(0, (sum, item) => sum + item.subtotal);
 
   String _imageOf(dynamic p) {
@@ -323,6 +329,47 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                         );
                       },
                     ),
+                    if (cart.isNotEmpty) ...[
+                      const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: Text(
+                          "Cart",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: cart.length,
+                          itemBuilder: (_, i) {
+                            final item = cart[i];
+                            return ListTile(
+                              title: Text(item.name),
+                              subtitle: Text(
+                                "${item.quantity} x \$${item.price.toStringAsFixed(2)}",
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      "\$${item.subtotal.toStringAsFixed(2)}",
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.delete,
+                                          color: Colors.red,
+                                          ),
+                                          onPressed: () => removeFromCart(item.productId),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
 
                     const Divider(),
 
