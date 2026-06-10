@@ -1,92 +1,102 @@
-const pool = require("../config/db");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
-const roleHierarchy = {
-  user: 1,
-  cashier: 2,
-  manager: 3,
-  director: 4
-};
+const usersModel = require('../models/users');
 
-const canCreateRole = (creatorRole, targetRole) => {
-  if (targetRole === "director") return creatorRole === "director";
-  if (targetRole === "manager") return ["manager", "director"].includes(creatorRole);
-  if (targetRole === "cashier") return ["manager", "director"].includes(creatorRole);
-  return true; // user
-};
+const register = async (req, res) => {
+    try {
+        const { name, email, password } = req.body;
 
-/*
- * LOGIN
- */
-const login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+        const existingUser = await usersModel.findUserByEmail(email);
 
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
-    }
+        if (existingUser) {
+            return res.status(400).json({
+                message: 'User already exists'
+            });
+        }
 
-    const result = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
-    const user = result.rows[0];
+        const saltRounds = 10;
 
-    if (!user) return res.status(401).json({ message: "Invalid credentials" });
+        const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ message: "Invalid credentials" });
+        const user = await usersModel.createUser(
+            name,
+            email,
+            passwordHash
+        );
 
-    const token = jwt.sign(
-      { id: user.id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
-    );
+        res.status(201).json({
+            message: 'User created successfully',
+            user
+        });
 
-    return res.json({
-      token,
-      user: { id: user.id, role: user.role }
+    } catch (err) {
+    console.log("🔥 FULL ERROR OBJECT:");
+    console.log(err);
+    console.log("🔥 ERROR MESSAGE:");
+    console.log(err.message);
+
+    return res.status(500).json({
+        message: 'Server error',
+        error: err.message,
+        stack: err.stack
     });
-
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
-  }
+}
 };
 
-/*
- * REGISTER USER
- */
-const registerUser = async (req, res) => {
-  try {
-    const { name, email, password, role = "user" } = req.body;
+const login = async (req, res) => {
+    try {
+        const { email, password } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "Missing required fields" });
+        const user = await usersModel.findUserByEmail(email);
+
+        if (!user) {
+            return res.status(400).json({
+                message: 'Invalid credentials'
+            });
+        }
+
+        const isMatch = await bcrypt.compare(
+            password,
+            user.password_hash
+        );
+
+        if (!isMatch) {
+            return res.status(400).json({
+                message: 'Invalid credentials'
+            });
+        }
+
+        const token = jwt.sign(
+            {
+                userId: user.id,
+                role: user.role
+            },
+            process.env.JWT_SECRET,
+            {
+                expiresIn: '1d'
+            }
+        );
+
+        res.json({
+            message: 'Login successful',
+            token
+        });
+
+    } catch (err) {
+    console.log("🔥 FULL ERROR OBJECT:");
+    console.log(err);
+    console.log("🔥 ERROR MESSAGE:");
+    console.log(err.message);
+
+res.status(500).json({
+    message: 'Server error',
+    error: err.message
+});
     }
-
-    const allowedRoles = ["user", "cashier", "manager", "director"];
-    if (!allowedRoles.includes(role)) {
-      return res.status(400).json({ message: "Invalid role" });
-    }
-
-    const creatorRole = req.user?.role;
-
-    if (creatorRole && !canCreateRole(creatorRole, role)) {
-      return res.status(403).json({
-        message: `Your role (${creatorRole}) cannot create ${role}`
-      });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    await pool.query(
-      "INSERT INTO users (name, email, password, role) VALUES ($1,$2,$3,$4)",
-      [name, email, hashedPassword, role]
-    );
-
-    res.status(201).json({ message: "User created successfully" });
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
 };
 
-module.exports = { login, registerUser };
+module.exports = {
+    register,
+    login
+};

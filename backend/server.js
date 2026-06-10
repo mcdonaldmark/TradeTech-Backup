@@ -1,74 +1,69 @@
-const express = require("express");
-const cors = require("cors");
-require("dotenv").config();
+require('dotenv').config();
 
-const userRoutes = require("./routes/userRoutes");
-const authRoutes = require("./routes/authRoutes");
-const inventoryRoutes = require("./routes/inventoryRoutes");
-const salesRoutes = require("./routes/salesRoutes");
-const orderRoutes = require("./routes/orderRoutes");
+const express = require('express');
+const cors = require('cors');
 
-const pool = require("./config/db");
-const bcrypt = require("bcrypt");
+const authRoutes = require('./routes/authRoutes');
+const productRoutes = require('./routes/productRoutes');
+
+const pool = require('./config/db');
 
 const app = express();
 
-console.log("SERVER STARTED");
-
-app.use(cors({
-  origin: "*",
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-}));
-
+/**
+ * Middleware
+ */
+app.use(cors());
 app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.json({ status: "ok", message: "API running" });
-});
-
-app.get("/api/seed", async (req, res) => {
+/**
+ * PostgreSQL Connection Test
+ */
+async function testDB() {
   try {
-    const password = await bcrypt.hash("Admin123!", 10);
+    const result = await pool.query('SELECT NOW()');
 
-    const users = [
-      ["System Director", "director@tradetech.com", "director"],
-      ["System Manager", "manager@tradetech.com", "manager"],
-      ["System Cashier", "cashier@tradetech.com", "cashier"],
-      ["System User", "user@tradetech.com", "user"],
-    ];
-
-    for (const u of users) {
-      await pool.query(
-        `INSERT INTO users (name,email,password,role)
-         VALUES ($1,$2,$3,$4)
-         ON CONFLICT (email) DO NOTHING`,
-        [u[0], u[1], password, u[2]]
-      );
-    }
-
-    res.json({ message: "Seed complete" });
+    console.log('✅ PostgreSQL Connected');
+    console.log(result.rows[0]);
 
   } catch (err) {
+    console.error('❌ PostgreSQL Connection Failed');
     console.error(err);
-    res.status(500).json({ error: err.message });
   }
+}
+
+testDB();
+
+/**
+ * Routes
+ */
+app.use('/api/auth', authRoutes);
+app.use('/api/products', productRoutes);
+
+/**
+ * Test Route (TEMPORARY DEBUG)
+ */
+app.post('/test-body', (req, res) => {
+
+  console.log('📦 BODY:', req.body);
+
+  res.json({
+    received: req.body
+  });
 });
 
-// ---------------- ROUTES ----------------
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/inventory", inventoryRoutes);
-app.use("/api/sales", salesRoutes);
-app.use("/api/orders", orderRoutes);
-
-app.use((req, res) => {
-  res.status(404).json({ message: "Route not found" });
+/**
+ * Default Route
+ */
+app.get('/', (req, res) => {
+  res.send('TradeTech API Running Successfully');
 });
 
-// ---------------- START SERVER ----------------
-const PORT = process.env.PORT || 5000;
+/**
+ * Server
+ */
+const PORT = process.env.PORT || 8000;
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log("Server running on port", PORT);
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
